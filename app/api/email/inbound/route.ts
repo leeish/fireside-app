@@ -9,9 +9,13 @@ import { inngest } from '@/inngest/client'
 
 export async function POST(request: NextRequest) {
   const payload = await request.json()
+  console.log('[inbound] payload keys:', Object.keys(payload))
+  console.log('[inbound] to:', payload.to)
+  console.log('[inbound] from:', payload.from)
+  console.log('[inbound] to_full:', payload.to_full)
 
-  const to: string = Array.isArray(payload.to) ? payload.to[0] : payload.to
-  const from: string = payload.from
+  const to: string = Array.isArray(payload.to) ? payload.to[0] : (payload.to ?? '')
+  const from: string = payload.from ?? ''
   const text: string = payload.text ?? ''
 
   const conversationId = parseConversationId(to)
