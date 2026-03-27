@@ -47,6 +47,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to save response' }, { status: 500 })
   }
 
+  // Mark any active queued prompt as engaged
+  await service
+    .from('queued_prompts')
+    .update({ delivery_state: 'engaged', engaged_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+    .in('delivery_state', ['queued', 'in_app_seen'])
+
   // Update last_active_at
   await service
     .from('users')
