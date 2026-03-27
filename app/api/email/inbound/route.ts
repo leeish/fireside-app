@@ -8,11 +8,11 @@ import { inngest } from '@/inngest/client'
 // so we can route each reply back to the right conversation.
 
 export async function POST(request: NextRequest) {
-  const payload = await request.json()
+  const envelope = await request.json()
+  const payload = envelope.data ?? envelope
   console.log('[inbound] payload keys:', Object.keys(payload))
   console.log('[inbound] to:', payload.to)
   console.log('[inbound] from:', payload.from)
-  console.log('[inbound] to_full:', payload.to_full)
 
   const to: string = Array.isArray(payload.to) ? payload.to[0] : (payload.to ?? '')
   const from: string = payload.from ?? ''
