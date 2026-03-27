@@ -9,3 +9,7 @@ Vercel permanently blocks deployment if it detects a non-collaborator author on 
 Before every commit, verify the message contains no `Co-Authored-By`, `Co-authored-by`, or any `noreply@anthropic.com` lines.
 
 Commit messages should be plain text only — subject line + optional bullet body. No trailers.
+
+## Deployment
+
+Pushing to `main` triggers an automatic Vercel deployment. No manual deploy step needed.
