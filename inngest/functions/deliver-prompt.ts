@@ -36,14 +36,13 @@ export const deliverPrompt = inngest.createFunction(
     if (userError || !user) throw new Error(`User not found: ${userId}`)
 
     // Hold rule: if user was active in the last 6 hours, skip email this cycle
-    // TODO: re-enable before launch
-    // if (user.last_active_at) {
-    //   const lastActive = new Date(user.last_active_at).getTime()
-    //   const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000
-    //   if (lastActive > sixHoursAgo) {
-    //     return { skipped: 'user recently active — holding email' }
-    //   }
-    // }
+    if (user.last_active_at) {
+      const lastActive = new Date(user.last_active_at).getTime()
+      const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000
+      if (lastActive > sixHoursAgo) {
+        return { skipped: 'user recently active — holding email' }
+      }
+    }
 
     // Create the conversation for this delivery
     const { data: conversation, error: convError } = await supabase
