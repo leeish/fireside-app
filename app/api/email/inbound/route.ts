@@ -3,25 +3,39 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { encrypt } from '@/lib/crypto'
 import { inngest } from '@/inngest/client'
 
-// Resend posts inbound email payloads here.
+// Resend posts inbound email metadata here — body must be fetched separately via API.
 // Reply-to addresses are formatted as reply+{conversationId}@domain
 // so we can route each reply back to the right conversation.
 
 export async function POST(request: NextRequest) {
   const envelope = await request.json()
   const payload = envelope.data ?? envelope
-  console.log('[inbound] payload keys:', Object.keys(payload))
-  console.log('[inbound] to:', payload.to)
-  console.log('[inbound] from:', payload.from)
 
+  const emailId: string = payload.email_id ?? ''
   const to: string = Array.isArray(payload.to) ? payload.to[0] : (payload.to ?? '')
   const from: string = payload.from ?? ''
-  const text: string = payload.text ?? ''
+
+  if (!emailId) {
+    return NextResponse.json({ error: 'No email_id in payload' }, { status: 400 })
+  }
 
   const conversationId = parseConversationId(to)
   if (!conversationId) {
     return NextResponse.json({ error: 'No conversation ID in recipient address' }, { status: 400 })
   }
+
+  // Fetch full email body from Resend API
+  const resendRes = await fetch(`https://api.resend.com/emails/${emailId}`, {
+    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
+  })
+
+  if (!resendRes.ok) {
+    console.error('[inbound] Failed to fetch email body:', resendRes.status)
+    return NextResponse.json({ error: 'Failed to fetch email body' }, { status: 500 })
+  }
+
+  const emailData = await resendRes.json()
+  const text: string = emailData.text ?? ''
 
   const responseText = extractReply(text)
   if (!responseText) {
@@ -30,7 +44,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createServiceClient()
 
-  // Load the conversation to get user_id and verify it's active
+  // Load the conversation to get user_id and verify it exists
   const { data: conversation, error: convError } = await supabase
     .from('conversations')
     .select('id, user_id, status, users(email)')
@@ -49,7 +63,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Sender mismatch' }, { status: 403 })
   }
 
-  // Idempotency: check for an existing unprocessed user turn in this conversation
+  // Idempotency: check for an existing user turn in this conversation
   const { data: existingTurns } = await supabase
     .from('turns')
     .select('id')
