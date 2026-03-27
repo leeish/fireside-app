@@ -26,6 +26,18 @@ export const deliverPrompt = inngest.createFunction(
     if (qpError || !qp) throw new Error(`Queued prompt not found: ${queuedPromptId}`)
     if (qp.delivery_state === 'complete') return { skipped: 'already complete' }
 
+    // Don't send if another prompt is already awaiting a response
+    const { data: inFlight } = await supabase
+      .from('queued_prompts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('delivery_state', 'email_sent')
+      .neq('id', queuedPromptId)
+      .limit(1)
+      .maybeSingle()
+
+    if (inFlight) return { skipped: 'another prompt is already awaiting a response' }
+
     // Load user
     const { data: user, error: userError } = await supabase
       .from('users')
