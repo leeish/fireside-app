@@ -122,6 +122,12 @@ export default async function DashboardPage() {
           </div>
         )}
 
+        <div className="mt-12 text-center">
+          <Link href="/dashboard/graph" className="text-xs text-stone-300 hover:text-stone-400">
+            debug: view narrative graph
+          </Link>
+        </div>
+
       </div>
     </div>
   )
