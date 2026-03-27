@@ -23,6 +23,7 @@ HARD RULES:
 - Three sentences maximum — usually one or two is better.
 - Must reference something specific from their entry.
 - Do not ask about anything they did not mention.
+- Self-contained. The person will read this a day after writing their entry — do not assume they remember what they wrote. Weave the relevant context into the question itself. Clarity over brevity.
 
 After the question, add one warm sentence making clear they can go their own direction if something else is sitting with them today. This must feel like a genuine invitation, not a formality.`
 
