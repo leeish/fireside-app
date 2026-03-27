@@ -24,17 +24,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No conversation ID in recipient address' }, { status: 400 })
   }
 
-  // Fetch full email body from Resend API
-  const resendRes = await fetch(`https://api.resend.com/emails/${emailId}`, {
-    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-  })
+  // Fetch full email body via Resend SDK
+  const { Resend } = await import('resend')
+  const resend = new Resend(process.env.RESEND_INBOUND_KEY)
+  const { data: emailData, error: emailError } = await resend.emails.receiving.get(emailId)
 
-  if (!resendRes.ok) {
-    console.error('[inbound] Failed to fetch email body:', resendRes.status)
+  if (emailError || !emailData) {
+    console.error('[inbound] Failed to fetch email body:', emailError)
     return NextResponse.json({ error: 'Failed to fetch email body' }, { status: 500 })
   }
 
-  const emailData = await resendRes.json()
   const text: string = emailData.text ?? ''
 
   const responseText = extractReply(text)
