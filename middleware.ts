@@ -34,9 +34,10 @@ export async function middleware(request: NextRequest) {
   const isPublic = pathname.startsWith('/privacy') || pathname.startsWith('/terms')
   const isInngest = pathname.startsWith('/api/inngest')
   const isWebhook = pathname.startsWith('/api/email/inbound')
+  const isAuthApi = pathname.startsWith('/api/auth')
 
-  // Let public pages, callbacks, Inngest, and inbound webhooks through always
-  if (isCallback || isPublic || isInngest || isWebhook) return supabaseResponse
+  // Let public pages, callbacks, Inngest, inbound webhooks, and auth API through always
+  if (isCallback || isPublic || isInngest || isWebhook || isAuthApi) return supabaseResponse
 
   // Unauthenticated — only allow login
   if (!user && !isAuthRoute) {
