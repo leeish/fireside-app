@@ -13,3 +13,7 @@ Commit messages should be plain text only — subject line + optional bullet bod
 ## Deployment
 
 Pushing to `main` triggers an automatic Vercel deployment. No manual deploy step needed.
+
+## External services
+
+Before writing any code that integrates with an external service (Resend, Inngest, Supabase, OpenAI, etc.), check their current docs first. Do not assume payload shapes, API behavior, or feature availability. Ask the user to paste relevant docs or fetch them directly if possible.
