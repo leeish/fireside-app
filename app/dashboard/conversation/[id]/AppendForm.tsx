@@ -10,9 +10,12 @@ export default function AppendForm({ conversationId }: { conversationId: string 
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [isRecording, setIsRecording] = useState(false)
+  const [isSpeechSupported, setIsSpeechSupported] = useState(false)
   const recognitionRef = useRef<any>(null)
-  const isSpeechSupported = typeof window !== 'undefined' &&
-    ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+
+  useEffect(() => {
+    setIsSpeechSupported('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
+  }, [])
 
   useEffect(() => {
     return () => recognitionRef.current?.stop()
