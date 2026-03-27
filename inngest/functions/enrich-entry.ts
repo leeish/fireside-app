@@ -95,8 +95,13 @@ export const enrichEntry = inngest.createFunction(
       .update({ processed: true })
       .eq('id', turnId)
 
-    // Fire prompt selection
-    await inngest.send({ name: 'fireside/prompt.select', data: { userId: turn.user_id } })
+    // First entry gets a dedicated follow-up that reads the actual entry and continues it directly.
+    // All subsequent entries go through the standard scoring engine.
+    if (updatedGraph.total_entries === 1) {
+      await inngest.send({ name: 'fireside/prompt.first-followup', data: { userId: turn.user_id, turnId: turn.id } })
+    } else {
+      await inngest.send({ name: 'fireside/prompt.select', data: { userId: turn.user_id } })
+    }
 
     return {
       turnId,
