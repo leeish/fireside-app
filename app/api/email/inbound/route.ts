@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { encrypt } from '@/lib/crypto'
 import { inngest } from '@/inngest/client'
+import { getAIClient } from '@/lib/ai'
 
 // Resend posts inbound email metadata here — body must be fetched separately via API.
 // Reply-to addresses are formatted as reply+{conversationId}@domain
@@ -35,10 +36,13 @@ export async function POST(request: NextRequest) {
   }
 
   const text: string = emailData.text ?? ''
+  if (!text.trim()) {
+    return NextResponse.json({ error: 'Empty email body' }, { status: 400 })
+  }
 
-  const responseText = extractReply(text)
+  const responseText = await extractReply(text)
   if (!responseText) {
-    return NextResponse.json({ error: 'Empty reply' }, { status: 400 })
+    return NextResponse.json({ error: 'Empty reply after extraction' }, { status: 400 })
   }
 
   const supabase = createServiceClient()
@@ -119,13 +123,26 @@ function parseConversationId(address: string): string | null {
   return match?.[1] ?? null
 }
 
-// Strip quoted reply history — keep only the user's new text
-function extractReply(text: string): string {
-  const lines = text.split('\n')
-  const cleaned: string[] = []
-  for (const line of lines) {
-    if (line.startsWith('>') || line.startsWith('On ') || line.includes('wrote:')) break
-    cleaned.push(line)
-  }
-  return cleaned.join('\n').trim()
+// Use LLM to extract only the user's new reply, stripping quoted history regardless of email client format
+async function extractReply(text: string): Promise<string> {
+  const { client, model } = getAIClient()
+
+  const completion = await client.chat.completions.create({
+    model,
+    temperature: 0,
+    store: false,
+    max_tokens: 1000,
+    messages: [
+      {
+        role: 'system',
+        content: 'You are extracting the new reply text from an email. Return only the text the person wrote in their new reply — nothing from the quoted/forwarded history below it. Return plain text only, no commentary, no formatting.',
+      },
+      {
+        role: 'user',
+        content: text,
+      },
+    ],
+  })
+
+  return completion.choices[0].message.content?.trim() ?? ''
 }
