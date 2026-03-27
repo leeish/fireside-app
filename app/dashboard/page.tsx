@@ -14,6 +14,7 @@ export default async function DashboardPage() {
     { data: conversations },
     { data: queuedPrompt },
     { data: unprocessedTurn },
+    { data: failedTurn },
   ] = await Promise.all([
     supabase
       .from('users')
@@ -42,11 +43,24 @@ export default async function DashboardPage() {
       .eq('processed', false)
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('turns')
+      .select('conversation_id')
+      .eq('user_id', user.id)
+      .eq('role', 'user')
+      .eq('processed', false)
+      .is('processed', false)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   const userName = profile?.display_name ?? 'Friend'
   const hasConversations = conversations && conversations.length > 0
   const isProcessing = !!unprocessedTurn && !queuedPrompt
+
+  // Find the conversation that matches the queued prompt — most recent active one
+  const activeConversation = conversations?.find(c => c.status === 'active')
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -71,6 +85,15 @@ export default async function DashboardPage() {
         {hasConversations && (
           <div className="space-y-6">
 
+            {/* Pipeline failed — processed turn exists but older than 10 mins with no queued prompt */}
+            {!isProcessing && !queuedPrompt && failedTurn && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
+                <p className="text-sm text-red-700">
+                  Something went wrong processing your last response. Your entry was saved — we'll try again shortly.
+                </p>
+              </div>
+            )}
+
             {/* Pipeline still running */}
             {isProcessing && (
               <div className="bg-white border border-stone-200 rounded-2xl p-5 text-center">
@@ -80,16 +103,21 @@ export default async function DashboardPage() {
 
             {/* Queued prompt waiting for a response */}
             {queuedPrompt && (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6">
-                <p className="text-xs font-medium text-amber-700 uppercase tracking-wide mb-3">
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 space-y-4">
+                <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">
                   A question for you
                 </p>
                 <p className="text-stone-800 text-base leading-relaxed font-medium">
                   {queuedPrompt.question}
                 </p>
-                <p className="text-xs text-stone-400 mt-3">
-                  Reply by email or answer below when you're ready.
-                </p>
+                {activeConversation && (
+                  <Link
+                    href={`/dashboard/conversation/${activeConversation.id}`}
+                    className="inline-block py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Answer
+                  </Link>
+                )}
               </div>
             )}
 
