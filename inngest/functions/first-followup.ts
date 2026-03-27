@@ -8,6 +8,9 @@ type FirstFollowupEvent = { data: { userId: string; turnId: string } }
 // This runs only after the user's very first entry.
 // Unlike select-next-prompt, it reads the actual entry and crafts a direct
 // continuation — not a new topic. The goal is to make them feel heard immediately.
+//
+// Process: generate 3 candidates in parallel, then run a selection pass
+// that picks the one most likely to create a "magical" first impression.
 
 const FIRST_FOLLOWUP_SYSTEM = `You are a thoughtful biographer reading someone's very first entry. This is the first thing they have ever shared with you.
 
@@ -26,6 +29,17 @@ HARD RULES:
 - Self-contained. The person will read this a day after writing their entry — do not assume they remember what they wrote. Weave the relevant context into the question itself. Clarity over brevity.
 
 After the question, add one warm sentence making clear they can go their own direction if something else is sitting with them today. This must feel like a genuine invitation, not a formality.`
+
+const SELECTOR_SYSTEM = `You are evaluating three candidate follow-up questions for a personal biography app. A user wrote their very first entry and these questions were generated as potential follow-ups.
+
+Your job: pick the single best question based on these criteria, in order of priority:
+
+1. ENGAGEMENT - Which question is this specific person most likely to actually want to answer? Consider what they revealed about themselves, what they seem to care about, and what threads they left open.
+2. MAGIC - Which question would make them think "how did it know to ask that?" — the feeling that something genuinely read and understood what they wrote, not a generic prompt.
+3. DEPTH - Which question is most likely to produce a meaningful, specific memory rather than a surface-level answer.
+
+Return JSON only: { "selected": 0, "reason": "one sentence" }
+where "selected" is the index (0, 1, or 2) of the best question.`
 
 export const firstFollowup = inngest.createFunction(
   { id: 'first-followup', retries: 3, triggers: [{ event: 'fireside/prompt.first-followup' }] },
@@ -67,22 +81,76 @@ export const firstFollowup = inngest.createFunction(
 
     const { client, model } = getAIClient()
 
-    const completion = await client.chat.completions.create({
-      model,
-      temperature: 0.7,
-      store: false,
-      max_tokens: 200,
-      messages: [
-        { role: 'system', content: FIRST_FOLLOWUP_SYSTEM },
-        {
-          role: 'user',
-          content: `The opening prompt they responded to: "${questionText}"\n\nTheir first entry:\n${responseText}\n\nWrite the follow-up question now.`,
-        },
-      ],
-    })
+    const userContent = `The opening prompt they responded to: "${questionText}"\n\nTheir first entry:\n${responseText}\n\nWrite the follow-up question now.`
 
-    const question = completion.choices[0].message.content?.trim() ?? ''
-    if (!question) throw new Error('Failed to generate first follow-up question')
+    // Generate 3 candidates in parallel
+    const [c1, c2, c3] = await Promise.all([
+      client.chat.completions.create({
+        model,
+        temperature: 0.8,
+        store: false,
+        max_tokens: 200,
+        messages: [
+          { role: 'system', content: FIRST_FOLLOWUP_SYSTEM },
+          { role: 'user', content: userContent },
+        ],
+      }),
+      client.chat.completions.create({
+        model,
+        temperature: 0.8,
+        store: false,
+        max_tokens: 200,
+        messages: [
+          { role: 'system', content: FIRST_FOLLOWUP_SYSTEM },
+          { role: 'user', content: userContent },
+        ],
+      }),
+      client.chat.completions.create({
+        model,
+        temperature: 0.8,
+        store: false,
+        max_tokens: 200,
+        messages: [
+          { role: 'system', content: FIRST_FOLLOWUP_SYSTEM },
+          { role: 'user', content: userContent },
+        ],
+      }),
+    ])
+
+    const candidates = [
+      c1.choices[0].message.content?.trim() ?? '',
+      c2.choices[0].message.content?.trim() ?? '',
+      c3.choices[0].message.content?.trim() ?? '',
+    ].filter(Boolean)
+
+    if (candidates.length === 0) throw new Error('Failed to generate any candidate questions')
+
+    // Selection pass — pick the best one
+    let question = candidates[0]
+
+    if (candidates.length > 1) {
+      const selectionResult = await client.chat.completions.create({
+        model,
+        temperature: 0,
+        store: false,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: SELECTOR_SYSTEM },
+          {
+            role: 'user',
+            content: `User's first entry:\n${responseText}\n\nCandidates:\n0: ${candidates[0]}\n\n1: ${candidates[1]}\n\n2: ${candidates[2] ?? '(none)'}`,
+          },
+        ],
+      })
+
+      try {
+        const parsed = JSON.parse(selectionResult.choices[0].message.content ?? '{}')
+        const idx = Number(parsed.selected)
+        if (candidates[idx]) question = candidates[idx]
+      } catch {
+        // Fall back to first candidate if parsing fails
+      }
+    }
 
     // Insert into queued_prompts
     const { data: qp, error: qpError } = await supabase
@@ -116,6 +184,6 @@ export const firstFollowup = inngest.createFunction(
       ts: deliverAt.getTime(),
     })
 
-    return { userId, queuedPromptId: qp.id, deliverAt: deliverAt.toISOString() }
+    return { userId, queuedPromptId: qp.id, deliverAt: deliverAt.toISOString(), candidates: candidates.length }
   }
 )
