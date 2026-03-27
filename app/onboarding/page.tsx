@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 
 const INTERESTS = [
   'Family history', 'Music', 'Sports', 'Outdoors & hiking', 'Travel', 'Reading',
@@ -32,21 +31,21 @@ export default function OnboardingPage() {
     setSaving(true)
     setError('')
     try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setError('Session expired. Please sign in again.'); setSaving(false); return }
+      const res = await fetch('/api/onboarding/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName: name.trim(),
+          onboardingProfile: { interests },
+        }),
+      })
 
-      // Upsert — creates the row if the auth trigger didn't, updates if it did
-      const { error } = await supabase
-        .from('users')
-        .upsert({
-          id: user.id,
-          email: user.email!,
-          display_name: name.trim(),
-          onboarding_profile: { interests },
-        }, { onConflict: 'id' })
-
-      if (error) { setError(error.message); setSaving(false); return }
+      if (!res.ok) {
+        const body = await res.json()
+        setError(body.error ?? 'Something went wrong')
+        setSaving(false)
+        return
+      }
 
       window.location.href = '/dashboard'
     } catch (e) {
