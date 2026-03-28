@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 
 export async function POST(request: NextRequest) {
   const { email } = await request.json()
   if (!email) return NextResponse.json({ error: 'Missing email' }, { status: 400 })
 
-  // Use the base supabase-js client directly to avoid @supabase/ssr forcing PKCE flow
-  const supabase = createClient(
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { flowType: 'implicit' } }
+    { cookies: { getAll: () => [], setAll: () => {} } }
   )
 
   const { error } = await supabase.auth.signInWithOtp({
