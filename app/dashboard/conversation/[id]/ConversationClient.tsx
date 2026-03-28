@@ -179,6 +179,7 @@ export default function ConversationClient({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ conversationId }),
     })
+    sessionStorage.setItem('last_settled_at', Date.now().toString())
     setStatus('settled')
     setSettling(false)
   }

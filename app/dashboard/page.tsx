@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import FirstPromptPicker from './FirstPromptPicker'
 import LogoutButton from './LogoutButton'
+import PromptCard from './PromptCard'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -104,20 +105,7 @@ export default async function DashboardPage() {
 
             {/* Queued prompt waiting for a response */}
             {queuedPrompt && (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 space-y-4">
-                <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">
-                  A question for you
-                </p>
-                <p className="text-stone-800 text-base leading-relaxed font-medium">
-                  {queuedPrompt.question}
-                </p>
-                <Link
-                  href={`/dashboard/answer/${queuedPrompt.id}`}
-                  className="inline-block py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
-                >
-                  Answer
-                </Link>
-              </div>
+              <PromptCard promptId={queuedPrompt.id} question={queuedPrompt.question} />
             )}
 
             {/* Conversation list */}
