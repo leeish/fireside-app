@@ -206,8 +206,7 @@ Graph context:
 ${graphContext}
 
 Task: Write ONE ${selected.questionType} question.
-Thread to address: ${selected.description}
-This is a Zone 1 email prompt — include the open door sentence.${historyBlock}
+Thread to address: ${selected.description}${historyBlock}
 `.trim()
 
     // Generate question (up to 2 attempts)

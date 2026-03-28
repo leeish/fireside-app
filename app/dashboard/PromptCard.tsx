@@ -81,32 +81,40 @@ export default function PromptCard({ promptId, question }: Props) {
   }
 
   return (
-    <div
-      className="bg-card rounded-[2rem] border border-primary/20 p-8 space-y-5"
-      style={{ boxShadow: '0 8px 32px -8px rgba(93, 112, 82, 0.15)' }}
-    >
-      <p className="text-xs font-semibold text-primary uppercase tracking-widest">
-        A question for you
-      </p>
-      <p className="font-display italic text-foreground text-xl leading-relaxed">
-        {question}
-      </p>
-      <div className="flex items-center gap-4">
-        <Link
-          href={`/dashboard/answer/${promptId}`}
-          className="inline-flex items-center h-12 px-8 bg-primary text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 transition-all duration-300"
-          style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.25)' }}
-        >
-          Answer
-        </Link>
-        <button
-          onClick={handleSkip}
-          disabled={skipping}
-          className="text-sm text-muted-fg hover:text-foreground disabled:opacity-50 transition-colors duration-300"
-        >
-          {skipping ? 'Skipping...' : 'Not for me'}
-        </button>
+    <div className="space-y-3">
+      <div
+        className="bg-card rounded-[2rem] border border-primary/20 p-8 space-y-5"
+        style={{ boxShadow: '0 8px 32px -8px rgba(93, 112, 82, 0.15)' }}
+      >
+        <p className="text-xs font-semibold text-primary uppercase tracking-widest">
+          A question for you
+        </p>
+        <p className="font-display italic text-foreground text-xl leading-relaxed">
+          {question}
+        </p>
+        <div className="flex items-center gap-4">
+          <Link
+            href={`/dashboard/answer/${promptId}`}
+            className="inline-flex items-center h-12 px-8 bg-primary text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 transition-all duration-300"
+            style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.25)' }}
+          >
+            Answer
+          </Link>
+          <button
+            onClick={handleSkip}
+            disabled={skipping}
+            className="text-sm text-muted-fg hover:text-foreground disabled:opacity-50 transition-colors duration-300"
+          >
+            {skipping ? 'Skipping...' : 'Not for me'}
+          </button>
+        </div>
       </div>
+      <p className="text-xs text-muted-fg text-center">
+        Something else on your mind?{' '}
+        <Link href="/dashboard/new" className="underline underline-offset-2 hover:text-foreground transition-colors duration-300">
+          Write a free entry instead
+        </Link>
+      </p>
     </div>
   )
 }

@@ -58,8 +58,6 @@ Example: "Was there a moment when your faith felt most real to you?"
 lightness: After a heavy entry, redirects toward something warmer or funnier. The shift should feel like a breath, not an erasure.
 Example: "What's something about your family that always makes people laugh when you tell it?"
 
-ZONE 1 EMAIL ONLY — if the task says Zone 1 email, add a second part after the question:
-One warm sentence making it clear that going their own direction is equally welcome. This must feel genuine, not perfunctory. "Or feel free to share anything else" is a formality. "Or if something else is sitting with you today, I'm listening for that too" is an invitation. Both paths must feel equally right.
 `.trim()
 
 // ─────────────────────────────────────────────────────────────
