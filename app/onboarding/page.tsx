@@ -70,7 +70,7 @@ export default function OnboardingPage() {
 
         <div
           className="bg-card rounded-3xl border border-border p-8"
-          style={{ boxShadow: '0 10px 40px -10px rgba(44, 31, 20, 0.08)' }}
+          style={{ boxShadow: '0 10px 40px -10px rgba(93, 112, 82, 0.12)' }}
         >
 
           {step === 0 && (

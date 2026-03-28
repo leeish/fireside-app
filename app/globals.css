@@ -1,33 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  --fs-bg: #FAF7F2;
-  --fs-fg: #2C1F14;
-  --fs-primary: #B86A2E;
-  --fs-card: #FDFAF5;
-  --fs-muted: #EEE3D2;
-  --fs-muted-fg: #8C7255;
-  --fs-border: #E2D5C2;
-  --fs-ember: #D4873A;
+  --fs-bg: #FDFCF8;
+  --fs-fg: #2C2C24;
+  --fs-primary: #5D7052;
+  --fs-secondary: #C18C5D;
+  --fs-card: #FEFEFA;
+  --fs-muted: #F0EBE5;
+  --fs-muted-fg: #78786C;
+  --fs-border: #DED8CF;
+  --fs-accent: #E6DCCD;
 }
 
 @theme inline {
   --color-background: var(--fs-bg);
   --color-foreground: var(--fs-fg);
   --color-primary: var(--fs-primary);
+  --color-secondary: var(--fs-secondary);
   --color-card: var(--fs-card);
   --color-muted: var(--fs-muted);
   --color-muted-fg: var(--fs-muted-fg);
   --color-border: var(--fs-border);
-  --color-ember: var(--fs-ember);
+  --color-accent: var(--fs-accent);
 
-  --font-display: var(--font-playfair);
-  --font-sans: var(--font-source-sans);
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-nunito);
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--fs-bg);
   color: var(--fs-fg);
-  font-family: var(--font-source-sans, 'Helvetica Neue', Arial, sans-serif);
+  font-family: var(--font-nunito, 'Helvetica Neue', Arial, sans-serif);
 }

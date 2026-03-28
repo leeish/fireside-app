@@ -69,7 +69,7 @@ export default function LoginPage() {
         <form
           onSubmit={handleSubmit}
           className="bg-card rounded-3xl border border-border p-8 space-y-5"
-          style={{ boxShadow: '0 10px 40px -10px rgba(44, 31, 20, 0.08)' }}
+          style={{ boxShadow: '0 10px 40px -10px rgba(93, 112, 82, 0.12)' }}
         >
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Email address</label>

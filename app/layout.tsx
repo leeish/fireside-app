@@ -1,18 +1,18 @@
 import type { Metadata } from "next"
-import { Playfair_Display, Source_Sans_3, Geist_Mono } from "next/font/google"
+import { Fraunces, Nunito, Geist_Mono } from "next/font/google"
 import "./globals.css"
 
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
   style: ["normal", "italic"],
-  weight: ["400", "600", "700"],
+  weight: ["300", "400", "600", "700", "800"],
 })
 
-const sourceSans = Source_Sans_3({
-  variable: "--font-source-sans",
+const nunito = Nunito({
+  variable: "--font-nunito",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
 })
 
 const geistMono = Geist_Mono({
@@ -33,7 +33,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${sourceSans.variable} ${geistMono.variable} h-full`}
+      className={`${fraunces.variable} ${nunito.variable} ${geistMono.variable} h-full`}
     >
       <body className="min-h-full flex flex-col antialiased">
         {/* Paper grain texture overlay — botanical design signature */}

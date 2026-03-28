@@ -30,7 +30,7 @@ export default function PromptCard({ promptId, question }: Props) {
   return (
     <div
       className="bg-muted border border-primary/20 rounded-3xl p-7 space-y-5"
-      style={{ boxShadow: '0 8px 32px -8px rgba(184, 106, 46, 0.12)' }}
+      style={{ boxShadow: '0 8px 32px -8px rgba(93, 112, 82, 0.15)' }}
     >
       <p className="text-xs font-medium text-primary uppercase tracking-widest">
         A question for you

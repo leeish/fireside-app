@@ -240,7 +240,7 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
             key={prompt.category}
             onClick={() => { setSelected(prompt); setStage('answer') }}
             className="w-full text-left p-5 bg-background border border-border rounded-2xl hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 group"
-            style={{ boxShadow: '0 2px 12px -4px rgba(44, 31, 20, 0.04)' }}
+            style={{ boxShadow: '0 2px 12px -4px rgba(93, 112, 82, 0.08)' }}
           >
             <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">{prompt.teaser}</p>
             <p className="font-display italic text-foreground/80 text-sm leading-relaxed group-hover:text-foreground transition-colors duration-300">{prompt.text}</p>

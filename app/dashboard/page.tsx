@@ -82,7 +82,7 @@ export default async function DashboardPage() {
         {!hasConversations && (
           <div
             className="bg-card rounded-3xl border border-border p-8"
-            style={{ boxShadow: '0 10px 40px -10px rgba(44, 31, 20, 0.07)' }}
+            style={{ boxShadow: '0 10px 40px -10px rgba(93, 112, 82, 0.12)' }}
           >
             <FirstPromptPicker userName={userName} />
           </div>
@@ -105,7 +105,7 @@ export default async function DashboardPage() {
             {isProcessing && (
               <div
                 className="bg-card border border-border rounded-3xl p-5 text-center"
-                style={{ boxShadow: '0 4px 20px -4px rgba(44, 31, 20, 0.06)' }}
+                style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
               >
                 <p className="text-muted-fg text-sm italic font-display">Reading your response and crafting your next question...</p>
               </div>
@@ -130,7 +130,7 @@ export default async function DashboardPage() {
                     key={conv.id}
                     href={`/dashboard/conversation/${conv.id}`}
                     className="block bg-card border border-border rounded-2xl px-5 py-4 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 group"
-                    style={{ boxShadow: '0 2px 12px -4px rgba(44, 31, 20, 0.05)' }}
+                    style={{ boxShadow: '0 2px 12px -4px rgba(93, 112, 82, 0.08)' }}
                   >
                     <div className="flex items-center justify-between gap-4">
                       <p className="text-sm text-foreground/80 leading-snug line-clamp-2 flex-1 group-hover:text-foreground transition-colors duration-300">
