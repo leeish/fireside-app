@@ -116,7 +116,7 @@ export default function SettledView({
                 contentEditable
                 suppressContentEditableWarning
                 onBlur={handleTitleBlur}
-                className="text-lg font-display font-semibold text-foreground leading-snug focus:outline-none cursor-text"
+                className="text-lg font-display font-semibold text-foreground leading-snug whitespace-normal break-words focus:outline-none cursor-text"
                 style={{ caretColor: 'var(--color-primary)' }}
               >
                 {title}

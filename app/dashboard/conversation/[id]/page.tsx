@@ -69,7 +69,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
           </Link>
           <p className="text-xs text-muted-fg mb-1">{openedDate}</p>
           {!isSettled && (
-            <h1 className="text-lg font-display font-semibold text-foreground leading-snug">{conversation.topic}</h1>
+            <h1 className="text-lg font-display font-semibold text-foreground leading-snug whitespace-normal break-words">{conversation.topic}</h1>
           )}
         </div>
 
