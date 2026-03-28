@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 type Props = {
@@ -21,6 +21,17 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
   const [name, setName] = useState(displayName)
   const [selectedCadence, setSelectedCadence] = useState(cadence)
   const [active, setActive] = useState(isActive)
+  const [autosave, setAutosave] = useState(true)
+
+  useEffect(() => {
+    setAutosave(localStorage.getItem('fireside_autosave') !== 'false')
+  }, [])
+
+  function toggleAutosave() {
+    const next = !autosave
+    setAutosave(next)
+    localStorage.setItem('fireside_autosave', next ? 'true' : 'false')
+  }
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
@@ -154,6 +165,33 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
             <span
               className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-300 ${
                 !active ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+      </section>
+
+      {/* Writing */}
+      <section
+        className="bg-card rounded-[2rem] border border-border/50 p-7 space-y-4"
+        style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
+      >
+        <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Writing</h2>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-foreground">Autosave drafts</p>
+            <p className="text-xs text-muted-fg mt-0.5">Automatically saves your free entries every 15 seconds while you write</p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleAutosave}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
+              autosave ? 'bg-primary' : 'bg-border'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-300 ${
+                autosave ? 'translate-x-6' : 'translate-x-1'
               }`}
             />
           </button>

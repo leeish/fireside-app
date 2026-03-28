@@ -1,10 +1,18 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 type Mode = 'free' | 'biographer'
+type AutosaveStatus = 'idle' | 'saving' | 'saved'
+
+const AUTOSAVE_DELAY = 15000 // 15 seconds
+
+function getAutosaveEnabled(): boolean {
+  if (typeof window === 'undefined') return true
+  return localStorage.getItem('fireside_autosave') !== 'false'
+}
 
 export default function NewEntryPage() {
   const router = useRouter()
@@ -13,6 +21,10 @@ export default function NewEntryPage() {
   // Free entry state
   const [freeText, setFreeText] = useState('')
   const [freeTopic, setFreeTopic] = useState('')
+  const [draftConversationId, setDraftConversationId] = useState<string | null>(null)
+  const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>('idle')
+  const lastSavedText = useRef('')
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Biographer state
   const [biographerTopic, setBiographerTopic] = useState('')
@@ -27,6 +39,51 @@ export default function NewEntryPage() {
     setIsSpeechSupported('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
     return () => recognitionRef.current?.stop()
   }, [])
+
+  const performAutosave = useCallback(async (text: string, topic: string, existingId: string | null) => {
+    if (!text.trim() || text === lastSavedText.current) return
+    setAutosaveStatus('saving')
+    try {
+      if (!existingId) {
+        const res = await fetch('/api/entry/draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ responseText: text, topic }),
+        })
+        if (res.ok) {
+          const data = await res.json()
+          setDraftConversationId(data.conversationId)
+          lastSavedText.current = text
+          setAutosaveStatus('saved')
+          setTimeout(() => setAutosaveStatus('idle'), 2000)
+        }
+      } else {
+        const res = await fetch('/api/entry/draft', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId: existingId, responseText: text }),
+        })
+        if (res.ok) {
+          lastSavedText.current = text
+          setAutosaveStatus('saved')
+          setTimeout(() => setAutosaveStatus('idle'), 2000)
+        }
+      }
+    } catch {
+      setAutosaveStatus('idle')
+    }
+  }, [])
+
+  // Autosave trigger on text change
+  useEffect(() => {
+    if (!getAutosaveEnabled() || !freeText.trim()) return
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current)
+    autosaveTimer.current = setTimeout(
+      () => performAutosave(freeText, freeTopic, draftConversationId),
+      AUTOSAVE_DELAY
+    )
+    return () => { if (autosaveTimer.current) clearTimeout(autosaveTimer.current) }
+  }, [freeText, freeTopic, draftConversationId, performAutosave])
 
   function toggleRecording() {
     if (isRecording) {
@@ -53,22 +110,66 @@ export default function NewEntryPage() {
     setIsRecording(true)
   }
 
-  async function handleFreeSubmit() {
+  async function saveDraft(): Promise<string | null> {
+    if (!freeText.trim()) return draftConversationId
+    if (!draftConversationId) {
+      const res = await fetch('/api/entry/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ responseText: freeText, topic: freeTopic }),
+      })
+      if (!res.ok) return null
+      const data = await res.json()
+      setDraftConversationId(data.conversationId)
+      lastSavedText.current = freeText
+      return data.conversationId
+    } else if (freeText !== lastSavedText.current) {
+      await fetch('/api/entry/draft', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId: draftConversationId, responseText: freeText }),
+      })
+      lastSavedText.current = freeText
+      return draftConversationId
+    }
+    return draftConversationId
+  }
+
+  async function handleSaveForLater() {
     if (!freeText.trim()) return
     setLoading(true)
     setError('')
-    const res = await fetch('/api/entry/free', {
-      method: 'POST',
+    const id = await saveDraft()
+    if (!id) {
+      setError('Something went wrong. Please try again.')
+      setLoading(false)
+      return
+    }
+    router.push('/dashboard')
+  }
+
+  async function handleAddToStory() {
+    if (!freeText.trim()) return
+    setLoading(true)
+    setError('')
+    const id = await saveDraft()
+    if (!id) {
+      setError('Something went wrong. Please try again.')
+      setLoading(false)
+      return
+    }
+    // Publish: fire enrichment on the saved draft
+    const res = await fetch('/api/entry/draft', {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ responseText: freeText, topic: freeTopic }),
+      body: JSON.stringify({ conversationId: id, responseText: freeText, publish: true }),
     })
     if (!res.ok) {
       setError('Something went wrong. Please try again.')
       setLoading(false)
       return
     }
-    const data = await res.json()
-    router.push(`/dashboard/conversation/${data.conversationId}`)
+    router.push(`/dashboard/conversation/${id}`)
   }
 
   async function handleBiographerSubmit() {
@@ -127,8 +228,6 @@ export default function NewEntryPage() {
         {/* Free entry */}
         {mode === 'free' && (
           <div className="space-y-4">
-            <p className="text-sm text-muted-fg">Write about whatever's with you today. The biographer will follow your lead, if you need it.</p>
-
             <div>
               <label className="text-xs font-semibold text-muted-fg uppercase tracking-widest block mb-2">
                 What's this about? <span className="font-normal normal-case tracking-normal opacity-60">(optional)</span>
@@ -147,7 +246,7 @@ export default function NewEntryPage() {
               <textarea
                 value={freeText}
                 onChange={e => setFreeText(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleFreeSubmit() }}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddToStory() }}
                 placeholder="Just start. It doesn't have to be perfect."
                 rows={10}
                 autoFocus
@@ -173,17 +272,34 @@ export default function NewEntryPage() {
               )}
             </div>
 
+            {/* Autosave indicator */}
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-fg/60 h-4">
+                {autosaveStatus === 'saving' && 'Saving draft...'}
+                {autosaveStatus === 'saved' && 'Draft saved'}
+              </p>
+            </div>
+
             {error && <p className="text-sm text-red-600">{error}</p>}
 
-            <button
-              onClick={handleFreeSubmit}
-              disabled={loading || !freeText.trim()}
-              className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
-              style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
-            >
-              {loading ? 'Saving...' : 'Add to my story'}
-            </button>
-            <p className="text-xs text-muted-fg text-center">Cmd+Enter to submit</p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleAddToStory}
+                disabled={loading || !freeText.trim()}
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
+                style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
+              >
+                {loading ? 'Saving...' : 'Add to my story'}
+              </button>
+              <button
+                onClick={handleSaveForLater}
+                disabled={loading || !freeText.trim()}
+                className="w-full h-12 border-2 border-border text-foreground/70 text-sm font-medium rounded-full hover:border-primary/40 hover:bg-muted disabled:opacity-40 transition-all duration-300"
+              >
+                Save for later
+              </button>
+            </div>
+            <p className="text-xs text-muted-fg text-center">Cmd+Enter to add to story</p>
           </div>
         )}
 
