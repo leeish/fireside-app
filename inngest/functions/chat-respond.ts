@@ -3,12 +3,6 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { chatComplete, claudeComplete } from '@/lib/ai'
 
-function parseJSON(raw: string): unknown {
-  // Strip markdown code fences Claude sometimes wraps around JSON
-  const stripped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-  return JSON.parse(stripped)
-}
-
 type ChatRespondEvent = {
   data: {
     conversationId: string
@@ -97,7 +91,7 @@ export const chatRespond = inngest.createFunction(
           temperature: 0,
           maxTokens: 50,
         })
-        const parsed = parseJSON(raw) as { decision: string }
+        const parsed = JSON.parse(raw) as { decision: string }
         if (['continue', 'wrap_offer', 'energy_drop'].includes(parsed.decision)) {
           wrapAssessment = parsed.decision as typeof wrapAssessment
         }
@@ -128,7 +122,7 @@ export const chatRespond = inngest.createFunction(
       maxTokens: 300,
     })
 
-    const parsed = parseJSON(raw) as { response: string }
+    const parsed = JSON.parse(raw) as { response: string }
     const responseText = parsed.response?.trim() ?? ''
 
     if (!responseText) throw new Error('Empty response from chat model')
