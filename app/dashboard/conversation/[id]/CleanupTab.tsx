@@ -26,10 +26,14 @@ export default function CleanupTab({
     )
   }
 
-  async function handleGenerate() {
+  async function handleGenerate(force = false) {
     setGenerating(true)
     setError('')
-    const res = await fetch(`/api/conversation/${conversationId}/cleanup`, { method: 'POST' })
+    const res = await fetch(`/api/conversation/${conversationId}/cleanup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ force }),
+    })
     if (!res.ok) {
       setError('Something went wrong. Please try again.')
       setGenerating(false)
@@ -70,7 +74,7 @@ export default function CleanupTab({
       </div>
       <div className="border-t border-border/40 pt-4 text-center">
         <button
-          onClick={handleGenerate}
+          onClick={() => handleGenerate(true)}
           disabled={generating}
           className="text-xs text-muted-fg hover:text-foreground disabled:opacity-50 transition-colors duration-300"
         >

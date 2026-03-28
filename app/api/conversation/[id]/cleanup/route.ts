@@ -4,10 +4,12 @@ import { decrypt } from '@/lib/crypto'
 import { claudeComplete } from '@/lib/ai'
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: conversationId } = await params
+  const body = await req.json().catch(() => ({}))
+  const force = body.force === true
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -33,8 +35,8 @@ export async function POST(
 
   if (!entry) return NextResponse.json({ error: 'Entry not ready yet' }, { status: 404 })
 
-  // Return cached result if already generated
-  if (entry.cleaned_content) {
+  // Return cached result unless force-regenerating
+  if (entry.cleaned_content && !force) {
     return NextResponse.json({ content: entry.cleaned_content })
   }
 
