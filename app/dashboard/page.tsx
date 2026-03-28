@@ -25,7 +25,7 @@ export default async function DashboardPage() {
       .single(),
     supabase
       .from('conversations')
-      .select('id, topic, status, opened_at, channel')
+      .select('id, topic, status, opened_at, channel, entries(id, cleaned_content, story_content)')
       .eq('user_id', user.id)
       .neq('status', 'archived')
       .order('opened_at', { ascending: false })
@@ -132,6 +132,10 @@ export default async function DashboardPage() {
                 const date = new Date(conv.opened_at).toLocaleDateString('en-US', {
                   month: 'short', day: 'numeric', year: 'numeric',
                 })
+                const entry = Array.isArray(conv.entries) ? conv.entries[0] ?? null : null
+                const isSettled = conv.status === 'settled'
+                const isActive = conv.status === 'active' || conv.status === 'wrap_offered'
+
                 return (
                   <Link
                     key={conv.id}
@@ -139,11 +143,43 @@ export default async function DashboardPage() {
                     className="block bg-card border border-border/50 rounded-2xl px-5 py-4 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 group"
                     style={{ boxShadow: '0 2px 12px -4px rgba(93, 112, 82, 0.08)' }}
                   >
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-start justify-between gap-4">
                       <p className="text-sm text-foreground/80 leading-snug line-clamp-2 flex-1 group-hover:text-foreground transition-colors duration-300">
                         {conv.topic ?? 'Untitled'}
                       </p>
-                      <p className="text-xs text-muted-fg shrink-0">{date}</p>
+                      <p className="text-xs text-muted-fg shrink-0 mt-0.5">{date}</p>
+                    </div>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {isActive && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-amber-600/90">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          In progress
+                        </span>
+                      )}
+                      {isSettled && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-primary/70">
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+                          Complete
+                        </span>
+                      )}
+                      {entry && (
+                        <>
+                          <span className="text-border/60 text-xs">·</span>
+                          <span className="text-xs text-muted-fg">Entry</span>
+                        </>
+                      )}
+                      {entry?.cleaned_content && (
+                        <>
+                          <span className="text-border/60 text-xs">·</span>
+                          <span className="text-xs text-muted-fg">Cleaned up</span>
+                        </>
+                      )}
+                      {entry?.story_content && (
+                        <>
+                          <span className="text-border/60 text-xs">·</span>
+                          <span className="text-xs text-muted-fg">Story</span>
+                        </>
+                      )}
                     </div>
                   </Link>
                 )
