@@ -91,21 +91,31 @@ export default function SettledView({
   return (
     <div>
       {/* Editable title */}
-      <div className="mb-8">
-        {generatingTitle ? (
-          <p className="text-lg font-display font-semibold text-muted-fg animate-pulse">Generating title...</p>
-        ) : (
-          <h1
-            ref={titleRef}
-            contentEditable
-            suppressContentEditableWarning
-            onBlur={handleTitleBlur}
-            className="text-lg font-display font-semibold text-foreground leading-snug focus:outline-none cursor-text"
-            style={{ caretColor: 'var(--color-primary)' }}
-          >
-            {title}
-          </h1>
-        )}
+      <div className="mb-8 group flex items-start gap-3">
+        <div className="flex-1">
+          {generatingTitle ? (
+            <p className="text-lg font-display font-semibold text-muted-fg animate-pulse">Generating title...</p>
+          ) : (
+            <h1
+              ref={titleRef}
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={handleTitleBlur}
+              className="text-lg font-display font-semibold text-foreground leading-snug focus:outline-none cursor-text"
+              style={{ caretColor: 'var(--color-primary)' }}
+            >
+              {title}
+            </h1>
+          )}
+        </div>
+        <button
+          onClick={generateTitle}
+          disabled={generatingTitle}
+          title="Generate a new title"
+          className="opacity-0 group-hover:opacity-100 mt-1 text-xs text-muted-fg hover:text-foreground disabled:opacity-30 transition-all duration-200 shrink-0"
+        >
+          {generatingTitle ? '...' : 'AI title'}
+        </button>
       </div>
 
       {/* Tab bar */}
