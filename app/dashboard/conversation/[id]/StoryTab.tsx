@@ -31,6 +31,7 @@ export default function StoryTab({
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [showRegenerateOptions, setShowRegenerateOptions] = useState(false)
   const editorRef = useRef<HTMLDivElement>(null)
 
   const isDirty = content !== savedContent
@@ -59,6 +60,7 @@ export default function StoryTab({
     setContent(data.content)
     setSavedContent(data.content)
     setGenerating(false)
+    setShowRegenerateOptions(false)
   }
 
   async function handleSave() {
@@ -79,44 +81,48 @@ export default function StoryTab({
   return (
     <div className="space-y-6">
 
-      {/* Intensity picker */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">How much should we do?</p>
-        <div className="grid grid-cols-3 gap-2">
-          {INTENSITIES.map(opt => (
+      {/* No content yet: intensity picker + generate */}
+      {!content && (
+        <div className="space-y-5">
+          {/* Intensity picker */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">How much should we do?</p>
+            <div className="grid grid-cols-3 gap-2">
+              {INTENSITIES.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => setIntensity(opt.value)}
+                  className={`px-3 py-3 rounded-xl border text-left transition-all duration-200 ${
+                    intensity === opt.value
+                      ? 'border-primary/60 bg-primary/5 text-foreground'
+                      : 'border-border/50 text-muted-fg hover:border-primary/30 hover:text-foreground'
+                  }`}
+                >
+                  <p className="text-xs font-semibold">{opt.label}</p>
+                  <p className="text-xs mt-0.5 opacity-70 leading-tight">{opt.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="text-center space-y-3">
+            <p className="text-sm text-muted-fg font-display italic">
+              We'll write a journal entry in your voice using your words as the source.
+            </p>
+            {error && <p className="text-sm text-red-600">{error}</p>}
             <button
-              key={opt.value}
-              onClick={() => setIntensity(opt.value)}
-              className={`px-3 py-3 rounded-xl border text-left transition-all duration-200 ${
-                intensity === opt.value
-                  ? 'border-primary/60 bg-primary/5 text-foreground'
-                  : 'border-border/50 text-muted-fg hover:border-primary/30 hover:text-foreground'
-              }`}
+              onClick={handleGenerate}
+              disabled={generating}
+              className="px-6 h-10 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full disabled:opacity-50 hover:scale-105 active:scale-95 disabled:scale-100 transition-all duration-300"
+              style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
             >
-              <p className="text-xs font-semibold">{opt.label}</p>
-              <p className="text-xs mt-0.5 opacity-70 leading-tight">{opt.description}</p>
+              {generating ? 'Writing...' : 'Write my entry'}
             </button>
-          ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Generate / Regenerate */}
-      {!content ? (
-        <div className="text-center space-y-3">
-          <p className="text-sm text-muted-fg font-display italic">
-            We'll write a journal entry in your voice using your words as the source.
-          </p>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            className="px-6 h-10 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full disabled:opacity-50 hover:scale-105 active:scale-95 disabled:scale-100 transition-all duration-300"
-            style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
-          >
-            {generating ? 'Writing...' : 'Write my entry'}
-          </button>
-        </div>
-      ) : (
+      {/* Has content: prose editor + regenerate flow */}
+      {content && (
         <div className="space-y-4">
           <div
             ref={editorRef}
@@ -127,15 +133,57 @@ export default function StoryTab({
             style={{ caretColor: 'var(--color-primary)' }}
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
+
+          {/* Regenerate options (shown on demand) */}
+          {showRegenerateOptions && (
+            <div className="border-t border-border/40 pt-4 space-y-3">
+              <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Rewrite at a different level?</p>
+              <div className="grid grid-cols-3 gap-2">
+                {INTENSITIES.map(opt => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setIntensity(opt.value)}
+                    className={`px-3 py-3 rounded-xl border text-left transition-all duration-200 ${
+                      intensity === opt.value
+                        ? 'border-primary/60 bg-primary/5 text-foreground'
+                        : 'border-border/50 text-muted-fg hover:border-primary/30 hover:text-foreground'
+                    }`}
+                  >
+                    <p className="text-xs font-semibold">{opt.label}</p>
+                    <p className="text-xs mt-0.5 opacity-70 leading-tight">{opt.description}</p>
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleGenerate}
+                  disabled={generating}
+                  className="px-5 h-9 bg-primary hover:bg-primary/90 text-white text-xs font-semibold rounded-full disabled:opacity-50 transition-all duration-300"
+                >
+                  {generating ? 'Rewriting...' : 'Rewrite'}
+                </button>
+                <button
+                  onClick={() => setShowRegenerateOptions(false)}
+                  disabled={generating}
+                  className="px-5 h-9 border border-border text-xs text-muted-fg hover:text-foreground rounded-full disabled:opacity-50 transition-colors duration-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
-            <button
-              onClick={handleGenerate}
-              disabled={generating || saving}
-              className="text-xs text-muted-fg hover:text-foreground disabled:opacity-50 transition-colors duration-300"
-            >
-              {generating ? 'Rewriting...' : 'Regenerate'}
-            </button>
-            {isDirty && (
+            {!showRegenerateOptions && (
+              <button
+                onClick={() => setShowRegenerateOptions(true)}
+                disabled={generating || saving}
+                className="text-xs text-muted-fg hover:text-foreground disabled:opacity-50 transition-colors duration-300"
+              >
+                Regenerate
+              </button>
+            )}
+            {isDirty && !showRegenerateOptions && (
               <button
                 onClick={handleSave}
                 disabled={saving || generating}
