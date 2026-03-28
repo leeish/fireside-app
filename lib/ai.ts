@@ -76,10 +76,24 @@ export async function chatComplete({
       temperature,
       system,
       messages,
+      output_config: {
+        format: {
+          type: 'json_schema',
+          schema: {
+            type: 'object',
+            properties: {
+              response: { type: 'string' },
+              wrap: { type: 'boolean' },
+            },
+            required: ['response', 'wrap'],
+            additionalProperties: false,
+          },
+        },
+      },
     })
     const block = message.content[0]
     if (block.type !== 'text') throw new Error('Unexpected Claude response type')
-    return stripFences(block.text)
+    return block.text
   } else {
     // OpenAI — use json_object response format so output is always parseable
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
