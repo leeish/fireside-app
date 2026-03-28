@@ -1,7 +1,7 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { getAIClient, claudeComplete } from '@/lib/ai'
+import { chatComplete, claudeComplete } from '@/lib/ai'
 
 type ChatRespondEvent = {
   data: {
@@ -10,8 +10,6 @@ type ChatRespondEvent = {
   }
 }
 
-// Biographer voice adapted for real-time conversation.
-// Silence-first: do not acknowledge unless something genuinely specific warrants it.
 const CHAT_SYSTEM = `You are a thoughtful, patient biographer having a real-time conversation with someone to help capture their life story.
 
 You are not running an interview from a list. You are someone who has been listening closely and genuinely cares about the story unfolding in front of you. Your responses should feel like they came from a person, not a product.
@@ -19,12 +17,14 @@ You are not running an interview from a list. You are someone who has been liste
 THE SPINE: This conversation was opened with a specific question on a specific topic. Your job is to deepen that topic. Do not redirect to other interests or stories — even if you know them from the person's background. If a new thread surfaces mid-conversation, note it quietly and stay with what was started. The spine is everything.
 
 YOUR RHYTHM:
-- Do not acknowledge what they said unless something genuinely specific and surprising warrants it. Real interviewers go silent. Filler ("That sounds meaningful", "That must have been hard") is worse than nothing. When in doubt, go straight to the question.
-- Ask the next question. Specific, grounded in the exact words and details they just shared.
+- You may open with one brief sentence that reflects back something specific they just said — using their exact words, not a paraphrase, and without adding meaning they didn't express. This is optional. Only do it when something genuinely specific warrants it. Never filler like "That sounds meaningful" or "That must have been hard."
+- Then ask the next question. Specific, grounded in the exact words and details they just shared.
 - One question only. Never two questions in one response.
-- Never start with "I". It centers you, not them.
+- Never start your response with "I". It centers you, not them.
+- Never use the phrase "What was it about" — it is overused and generic.
 - Never generic. If the question could apply to anyone, it is wrong.
 - Three sentences maximum for the entire response.
+- Vary your sentence structure. Not every question should start the same way.
 
 Return JSON with exactly this field:
 { "response": "your full response text" }`
@@ -40,7 +40,7 @@ Look at the full conversation and return JSON with exactly this field:
 
 Return only JSON. No explanation.`
 
-const WRAP_OFFER_INSTRUCTION = `The assessment indicates this conversation may be at a natural resting point. Offer a wrap in your response. Name one specific thing they shared that they probably haven't written down before, then ask if there's more or if it's time to capture it.
+const WRAP_OFFER_INSTRUCTION = `The assessment indicates this conversation may be at a natural resting point. Offer a wrap in your response. Name one specific thing they shared — using their exact words, not a paraphrase — that they probably haven't written down before. Then ask if there's more or if it's time to capture it.
 
 Example: "You just told me about watching the Cowboys destroy the Bills with your dad at his friend's house — the blackjack and all of it. I don't think you've ever written that down before. Does that feel like the story for now, or is there more you want to add?"
 
@@ -51,7 +51,6 @@ export const chatRespond = inngest.createFunction(
   async ({ event }: { event: ChatRespondEvent }) => {
     const { conversationId, userId } = event.data
     const supabase = createServiceClient()
-    const { client, model } = getAIClient()
 
     // Load narrative graph for background context
     const { data: narrative } = await supabase
@@ -60,34 +59,28 @@ export const chatRespond = inngest.createFunction(
       .eq('user_id', userId)
       .single()
 
-    // Load recent turns — last 8 for context window, reversed to chronological
+    // Load all turns for full context (wrap assessment needs the complete arc)
     const { data: rawTurns } = await supabase
       .from('turns')
       .select('id, role, content, created_at')
       .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: false })
-      .limit(8)
+      .order('created_at', { ascending: true })
 
-    const recentTurns = (rawTurns ?? []).reverse()
+    const allTurns = rawTurns ?? []
 
-    const decryptedTurns = recentTurns.map(t => ({
+    const decryptedTurns = allTurns.map(t => ({
       ...t,
       content: t.role === 'user'
         ? (() => { try { return decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return '' } })()
         : t.content,
     }))
 
-    // Count user turns in this conversation for periodic wrap assessment
-    const { count: userTurnCount } = await supabase
-      .from('turns')
-      .select('id', { count: 'exact', head: true })
-      .eq('conversation_id', conversationId)
-      .eq('role', 'user')
+    // Count user turns for periodic wrap assessment
+    const userTurnCount = decryptedTurns.filter(t => t.role === 'user').length
 
     // Periodic wrap assessment — every 3 user turns, starting at turn 3
     let wrapAssessment: 'continue' | 'wrap_offer' | 'energy_drop' = 'continue'
-    const turnCount = userTurnCount ?? 0
-    if (turnCount > 0 && turnCount % 3 === 0) {
+    if (userTurnCount > 0 && userTurnCount % 3 === 0) {
       const conversationContext = decryptedTurns
         .map(t => `${t.role === 'user' ? 'Person' : 'Biographer'}: ${t.content}`)
         .join('\n\n')
@@ -107,36 +100,32 @@ export const chatRespond = inngest.createFunction(
       }
     }
 
-    // Background context — keep brief so it informs without redirecting
+    // Use last 10 turns for the actual chat context window
+    const recentTurns = decryptedTurns.slice(-10)
+
     const graphContext = narrative?.rolling_summary
       ? `Background on this person: ${narrative.rolling_summary}`
       : ''
 
-    const conversationContext = decryptedTurns
+    const conversationContext = recentTurns
       .map(t => `${t.role === 'user' ? 'Person' : 'Biographer'}: ${t.content}`)
       .join('\n\n')
 
     const wrapContext = wrapAssessment !== 'continue' ? `\n\n${WRAP_OFFER_INSTRUCTION}` : ''
 
-    const completion = await client.chat.completions.create({
-      model,
+    const userPrompt = `${graphContext}\n\nConversation:\n${conversationContext}${wrapContext}\n\nGenerate your next response.`
+
+    const raw = await chatComplete({
+      system: CHAT_SYSTEM,
+      user: userPrompt,
       temperature: 0.7,
-      store: false,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: CHAT_SYSTEM },
-        {
-          role: 'user',
-          content: `${graphContext}\n\nConversation:\n${conversationContext}${wrapContext}\n\nGenerate your next response.`,
-        },
-      ],
+      maxTokens: 300,
     })
 
-    const raw = completion.choices[0].message.content ?? '{}'
     const parsed = JSON.parse(raw) as { response: string }
     const responseText = parsed.response?.trim() ?? ''
 
-    if (!responseText) throw new Error('Empty response from LLM')
+    if (!responseText) throw new Error('Empty response from chat model')
 
     // Save biographer turn
     await supabase.from('turns').insert({
@@ -149,8 +138,7 @@ export const chatRespond = inngest.createFunction(
     })
 
     // If assessment flagged a wrap, set conversation status to wrap_offered
-    const offeringWrap = wrapAssessment !== 'continue'
-    if (offeringWrap) {
+    if (wrapAssessment !== 'continue') {
       await supabase
         .from('conversations')
         .update({ status: 'wrap_offered' })
