@@ -52,14 +52,15 @@ export async function claudeComplete({
 // Configurable chat completion — swap vendor/model via env vars, no deploy needed.
 // CHAT_VENDOR: "anthropic" (default) | "openai"
 // CHAT_MODEL:  "claude-haiku-4-5-20251001" (default) | "claude-sonnet-4-6" | "gpt-5.4-mini" | etc.
+// Accepts a proper alternating messages array as the API recommends for multi-turn chat.
 export async function chatComplete({
   system,
-  user,
+  messages,
   temperature = 0.7,
   maxTokens = 512,
 }: {
   system: string
-  user: string
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>
   temperature?: number
   maxTokens?: number
 }): Promise<string> {
@@ -74,7 +75,7 @@ export async function chatComplete({
       temperature,
       system,
       messages: [
-        { role: 'user', content: user },
+        ...messages,
         { role: 'assistant', content: '{' },
       ],
     })
@@ -91,7 +92,7 @@ export async function chatComplete({
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: system },
-        { role: 'user', content: user },
+        ...messages,
       ],
     })
     return completion.choices[0].message.content ?? ''

@@ -103,21 +103,31 @@ export const chatRespond = inngest.createFunction(
     // Use last 10 turns for the actual chat context window
     const recentTurns = decryptedTurns.slice(-10)
 
-    const graphContext = narrative?.rolling_summary
-      ? `Background on this person: ${narrative.rolling_summary}`
-      : ''
+    // Build proper alternating messages array — 'biographer' turns become 'assistant'
+    const chatMessages: Array<{ role: 'user' | 'assistant'; content: string }> = recentTurns.map(t => ({
+      role: t.role === 'user' ? 'user' : 'assistant',
+      content: t.content,
+    }))
 
-    const conversationContext = recentTurns
-      .map(t => `${t.role === 'user' ? 'Person' : 'Biographer'}: ${t.content}`)
-      .join('\n\n')
+    // Append wrap instruction to the last user message when assessment calls for it
+    if (wrapAssessment !== 'continue' && chatMessages.length > 0) {
+      const lastIdx = chatMessages.length - 1
+      if (chatMessages[lastIdx].role === 'user') {
+        chatMessages[lastIdx] = {
+          ...chatMessages[lastIdx],
+          content: chatMessages[lastIdx].content + '\n\n' + WRAP_OFFER_INSTRUCTION,
+        }
+      }
+    }
 
-    const wrapContext = wrapAssessment !== 'continue' ? `\n\n${WRAP_OFFER_INSTRUCTION}` : ''
-
-    const userPrompt = `${graphContext}\n\nConversation:\n${conversationContext}${wrapContext}\n\nGenerate your next response.`
+    // Background context goes in the system prompt so it frames every turn
+    const systemPrompt = narrative?.rolling_summary
+      ? `${CHAT_SYSTEM}\n\nBackground on this person: ${narrative.rolling_summary}`
+      : CHAT_SYSTEM
 
     const raw = await chatComplete({
-      system: CHAT_SYSTEM,
-      user: userPrompt,
+      system: systemPrompt,
+      messages: chatMessages,
       temperature: 0.7,
       maxTokens: 300,
     })
