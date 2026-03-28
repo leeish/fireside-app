@@ -1,6 +1,6 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
-import { getAIClient } from '@/lib/ai'
+import { claudeComplete } from '@/lib/ai'
 import { buildSystemPrompt } from '@/lib/craft-system'
 import type { NarrativeGraph } from '@/lib/graph'
 
@@ -127,21 +127,15 @@ Pass if: specific to this person, one question, opens something rather than clos
 async function qualityCheck(
   question: string,
   graphContext: string,
-  client: ReturnType<typeof getAIClient>['client'],
-  model: string,
 ): Promise<{ pass: boolean; reason: string }> {
-  const result = await client.chat.completions.create({
-    model,
-    temperature: 0,
-    store: false,
-    response_format: { type: 'json_object' },
-    messages: [
-      { role: 'system', content: QUALITY_CHECK_PROMPT },
-      { role: 'user', content: `Person context: ${graphContext}\n\nQuestion to evaluate: "${question}"` },
-    ],
-  })
   try {
-    return JSON.parse(result.choices[0].message.content ?? '{"pass":false,"reason":"parse error"}')
+    const raw = await claudeComplete({
+      system: QUALITY_CHECK_PROMPT + '\n\nReturn valid JSON only: {"pass": true/false, "reason": "..."}',
+      user: `Person context: ${graphContext}\n\nQuestion to evaluate: "${question}"`,
+      temperature: 0,
+      maxTokens: 200,
+    })
+    return JSON.parse(raw)
   } catch {
     return { pass: false, reason: 'failed to parse quality check response' }
   }
@@ -204,29 +198,20 @@ Thread to address: ${selected.description}
 This is a Zone 1 email prompt — include the open door sentence.
 `.trim()
 
-    const { client, model } = getAIClient()
-
     // Generate question (up to 2 attempts)
     let question = ''
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const completion = await client.chat.completions.create({
-        model,
+      question = await claudeComplete({
+        system: systemPrompt,
+        user: attempt === 1 ? taskInstruction : taskInstruction + '\n\nPrevious attempt failed quality check. Write a better version.',
         temperature: 0.7,
-        store: false,
-        max_tokens: 200,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: attempt === 1 ? taskInstruction : taskInstruction + '\n\nPrevious attempt failed quality check. Write a better version.' },
-        ],
+        maxTokens: 300,
       })
 
-      question = completion.choices[0].message.content?.trim() ?? ''
-
-      const check = await qualityCheck(question, graphContext, client, model)
+      const check = await qualityCheck(question, graphContext)
       if (check.pass) break
 
       if (attempt === 2) {
-        // Accept anyway rather than blocking the pipeline — log for review
         console.warn(`[select-next-prompt] Quality check failed after 2 attempts for user ${userId}: ${check.reason}`)
       }
     }
@@ -242,7 +227,7 @@ This is a Zone 1 email prompt — include the open door sentence.
         thread_id: selected.threadId,
         question_type: selected.questionType,
         delivery_state: 'queued',
-        model_used: model,
+        model_used: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
       })
       .select('id')
       .single()

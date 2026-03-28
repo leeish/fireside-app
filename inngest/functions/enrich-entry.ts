@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { getAIClient } from '@/lib/ai'
 import { mergeExtraction, emptyGraph, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
+import { synthesizeGraph } from '@/lib/synthesize-graph'
 
 type EnrichEntryEvent = { data: { turnId: string } }
 
@@ -78,6 +79,10 @@ export const enrichEntry = inngest.createFunction(
     const updatedGraph = mergeExtraction(currentGraph, extraction)
     const newVersion = (narrativeRow?.graph_version ?? 0) + 1
 
+    // Re-synthesize the rolling summary from the full graph
+    const synthesizedSummary = await synthesizeGraph(updatedGraph)
+    updatedGraph.rolling_summary = synthesizedSummary
+
     // Upsert the narrative (merge, never replace)
     await supabase
       .from('narratives')
@@ -85,7 +90,7 @@ export const enrichEntry = inngest.createFunction(
         user_id: turn.user_id,
         graph: updatedGraph,
         graph_version: newVersion,
-        rolling_summary: updatedGraph.rolling_summary ?? '',
+        rolling_summary: synthesizedSummary,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 

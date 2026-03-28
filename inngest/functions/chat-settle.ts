@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { getAIClient } from '@/lib/ai'
 import { mergeExtraction, emptyGraph, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
+import { synthesizeGraph } from '@/lib/synthesize-graph'
 
 type ChatSettleEvent = {
   data: {
@@ -76,13 +77,17 @@ export const chatSettle = inngest.createFunction(
     const updatedGraph = mergeExtraction(currentGraph, extraction)
     const newVersion = (narrativeRow?.graph_version ?? 0) + 1
 
+    // Re-synthesize the rolling summary from the full graph
+    const synthesizedSummary = await synthesizeGraph(updatedGraph)
+    updatedGraph.rolling_summary = synthesizedSummary
+
     await supabase
       .from('narratives')
       .upsert({
         user_id: userId,
         graph: updatedGraph,
         graph_version: newVersion,
-        rolling_summary: updatedGraph.rolling_summary ?? '',
+        rolling_summary: synthesizedSummary,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 

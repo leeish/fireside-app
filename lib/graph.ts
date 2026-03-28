@@ -144,7 +144,6 @@ export function mergeExtraction(graph: NarrativeGraph, extraction: ExtractionRes
   const fs = extraction.faith_signals
   if (fs) {
     if (!g.faith) g.faith = {}
-    // Only infer tradition if not already confirmed
     if (!g.faith.tradition && fs.tradition_signals?.length) {
       const detected = detectFaithTradition(fs.tradition_signals)
       if (detected) {
@@ -160,16 +159,71 @@ export function mergeExtraction(graph: NarrativeGraph, extraction: ExtractionRes
     }
   }
 
-  // Rolling summary — keep last 5 one-line summaries (bounded growth)
+  // Append one-line summary to entry log (kept in full — synthesis reads all of them)
   if (extraction.one_line_summary) {
     const lines = (g.rolling_summary ?? '').split('\n').filter(Boolean)
     lines.push(extraction.one_line_summary)
-    g.rolling_summary = lines.slice(-5).join('\n')
+    g.rolling_summary = lines.join('\n')
   }
 
   g.total_entries += 1
 
   return g
+}
+
+// Builds a structured briefing of the graph for the synthesis LLM.
+// Reads everything — not just the rolling summary.
+export function buildGraphBriefing(graph: NarrativeGraph): string {
+  const sections: string[] = []
+
+  if (graph.display_name) {
+    sections.push(`Person: ${graph.display_name}`)
+  }
+
+  const people = Object.entries(graph.people ?? {})
+  if (people.length > 0) {
+    const lines = people.map(([name, node]) => {
+      const parts = [`${name} (${node.relationship ?? 'unknown relationship'}, mentioned ${node.mentions}x`]
+      if (node.sentiment) parts[0] += `, ${node.sentiment}`
+      parts[0] += ')'
+      if (node.facts.length) parts.push(`  facts: ${node.facts.join('; ')}`)
+      if (node.unexplored.length) parts.push(`  unexplored: ${node.unexplored.join('; ')}`)
+      return parts.join('\n')
+    })
+    sections.push(`People:\n${lines.join('\n')}`)
+  }
+
+  if (graph.places?.length) {
+    sections.push(`Places mentioned: ${graph.places.join(', ')}`)
+  }
+
+  const eras = Object.entries(graph.eras ?? {})
+  if (eras.length > 0) {
+    const lines = eras.map(([era, node]) => `${era}: ${node.entries} entries, richness=${node.richness}`)
+    sections.push(`Eras:\n${lines.join('\n')}`)
+  }
+
+  if (graph.themes?.length) {
+    sections.push(`Themes: ${graph.themes.join(', ')}`)
+  }
+
+  if (graph.deflections?.length) {
+    sections.push(`Deflections (topics started, then avoided):\n${graph.deflections.map(d => `- ${d}`).join('\n')}`)
+  }
+
+  const faith = graph.faith
+  if (faith && Object.keys(faith).length > 0) {
+    const parts = []
+    if (faith.tradition) parts.push(`tradition: ${faith.tradition} (confidence: ${faith.confidence})`)
+    if (faith.spiritual_moments?.length) parts.push(`spiritual moments: ${faith.spiritual_moments.join('; ')}`)
+    if (parts.length) sections.push(`Faith: ${parts.join(', ')}`)
+  }
+
+  if (graph.rolling_summary) {
+    sections.push(`Entry log (one line per entry, chronological):\n${graph.rolling_summary}`)
+  }
+
+  return sections.join('\n\n')
 }
 
 export function emptyGraph(displayName?: string): NarrativeGraph {

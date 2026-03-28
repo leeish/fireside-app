@@ -1,7 +1,7 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { getAIClient } from '@/lib/ai'
+import { claudeComplete } from '@/lib/ai'
 
 type FirstFollowupEvent = { data: { userId: string; turnId: string } }
 
@@ -47,7 +47,6 @@ export const firstFollowup = inngest.createFunction(
     const { userId, turnId } = event.data
     const supabase = createServiceClient()
 
-    // Load the user's initial turn
     const { data: turn, error: turnError } = await supabase
       .from('turns')
       .select('id, conversation_id, content')
@@ -58,7 +57,6 @@ export const firstFollowup = inngest.createFunction(
 
     if (turnError || !turn) throw new Error(`Turn not found: ${turnId}`)
 
-    // Load the biographer's opening question
     const { data: bioTurns } = await supabase
       .from('turns')
       .select('content')
@@ -70,7 +68,6 @@ export const firstFollowup = inngest.createFunction(
     const questionText = bioTurns?.[0]?.content ?? ''
     const responseText = decrypt(turn.content, process.env.MEMORY_ENCRYPTION_KEY!)
 
-    // Load user for cadence
     const { data: user } = await supabase
       .from('users')
       .select('id, cadence')
@@ -79,80 +76,37 @@ export const firstFollowup = inngest.createFunction(
 
     if (!user) throw new Error(`User not found: ${userId}`)
 
-    const { client, model } = getAIClient()
-
     const userContent = `The opening prompt they responded to: "${questionText}"\n\nTheir first entry:\n${responseText}\n\nWrite the follow-up question now.`
 
-    // Generate 3 candidates in parallel
+    // Generate 3 candidates in parallel using Claude
     const [c1, c2, c3] = await Promise.all([
-      client.chat.completions.create({
-        model,
-        temperature: 0.8,
-        store: false,
-        max_tokens: 200,
-        messages: [
-          { role: 'system', content: FIRST_FOLLOWUP_SYSTEM },
-          { role: 'user', content: userContent },
-        ],
-      }),
-      client.chat.completions.create({
-        model,
-        temperature: 0.8,
-        store: false,
-        max_tokens: 200,
-        messages: [
-          { role: 'system', content: FIRST_FOLLOWUP_SYSTEM },
-          { role: 'user', content: userContent },
-        ],
-      }),
-      client.chat.completions.create({
-        model,
-        temperature: 0.8,
-        store: false,
-        max_tokens: 200,
-        messages: [
-          { role: 'system', content: FIRST_FOLLOWUP_SYSTEM },
-          { role: 'user', content: userContent },
-        ],
-      }),
+      claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300 }),
+      claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300 }),
+      claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300 }),
     ])
 
-    const candidates = [
-      c1.choices[0].message.content?.trim() ?? '',
-      c2.choices[0].message.content?.trim() ?? '',
-      c3.choices[0].message.content?.trim() ?? '',
-    ].filter(Boolean)
-
+    const candidates = [c1, c2, c3].filter(Boolean)
     if (candidates.length === 0) throw new Error('Failed to generate any candidate questions')
 
     // Selection pass — pick the best one
     let question = candidates[0]
 
     if (candidates.length > 1) {
-      const selectionResult = await client.chat.completions.create({
-        model,
-        temperature: 0,
-        store: false,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: SELECTOR_SYSTEM },
-          {
-            role: 'user',
-            content: `User's first entry:\n${responseText}\n\nCandidates:\n0: ${candidates[0]}\n\n1: ${candidates[1]}\n\n2: ${candidates[2] ?? '(none)'}`,
-          },
-        ],
-      })
-
       try {
-        const parsed = JSON.parse(selectionResult.choices[0].message.content ?? '{}')
+        const raw = await claudeComplete({
+          system: SELECTOR_SYSTEM + '\n\nReturn valid JSON only.',
+          user: `User's first entry:\n${responseText}\n\nCandidates:\n0: ${candidates[0]}\n\n1: ${candidates[1]}\n\n2: ${candidates[2] ?? '(none)'}`,
+          temperature: 0,
+          maxTokens: 200,
+        })
+        const parsed = JSON.parse(raw)
         const idx = Number(parsed.selected)
         if (candidates[idx]) question = candidates[idx]
       } catch {
-        // Fall back to first candidate if parsing fails
+        // Fall back to first candidate
       }
     }
 
-    // Insert into queued_prompts
     const { data: qp, error: qpError } = await supabase
       .from('queued_prompts')
       .insert({
@@ -161,14 +115,13 @@ export const firstFollowup = inngest.createFunction(
         thread_id: 'first-followup',
         question_type: 'depth',
         delivery_state: 'queued',
-        model_used: model,
+        model_used: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
       })
       .select('id')
       .single()
 
     if (qpError || !qp) throw new Error(`Failed to insert queued prompt: ${qpError?.message}`)
 
-    // Update soft pointer on users
     await supabase
       .from('users')
       .update({ queued_prompt_id: qp.id })
