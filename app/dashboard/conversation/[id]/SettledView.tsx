@@ -43,21 +43,35 @@ export default function SettledView({
 
   const [title, setTitle] = useState(topic)
   const [generatingTitle, setGeneratingTitle] = useState(false)
+  const [showStylePicker, setShowStylePicker] = useState(false)
   const titleRef = useRef<HTMLHeadingElement>(null)
 
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [archiving, setArchiving] = useState(false)
 
+  const TITLE_STYLES = [
+    { value: 'evocative', label: 'Evocative' },
+    { value: 'witty',     label: 'Witty' },
+    { value: 'playful',   label: 'Playful' },
+    { value: 'poetic',    label: 'Poetic' },
+    { value: 'simple',    label: 'Simple' },
+  ]
+
   // Auto-generate title if topic still looks like a question
   useEffect(() => {
     if (topic.includes('?')) {
-      generateTitle()
+      generateTitle('evocative')
     }
   }, [])
 
-  async function generateTitle() {
+  async function generateTitle(style: string) {
     setGeneratingTitle(true)
-    const res = await fetch(`/api/conversation/${conversationId}/title`, { method: 'POST' })
+    setShowStylePicker(false)
+    const res = await fetch(`/api/conversation/${conversationId}/title`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ style }),
+    })
     if (res.ok) {
       const data = await res.json()
       setTitle(data.title)
@@ -91,31 +105,54 @@ export default function SettledView({
   return (
     <div>
       {/* Editable title */}
-      <div className="mb-8 group flex items-start gap-3">
-        <div className="flex-1">
-          {generatingTitle ? (
-            <p className="text-lg font-display font-semibold text-muted-fg animate-pulse">Generating title...</p>
-          ) : (
-            <h1
-              ref={titleRef}
-              contentEditable
-              suppressContentEditableWarning
-              onBlur={handleTitleBlur}
-              className="text-lg font-display font-semibold text-foreground leading-snug focus:outline-none cursor-text"
-              style={{ caretColor: 'var(--color-primary)' }}
-            >
-              {title}
-            </h1>
-          )}
+      <div className="mb-8">
+        <div className="group flex items-start gap-3">
+          <div className="flex-1">
+            {generatingTitle ? (
+              <p className="text-lg font-display font-semibold text-muted-fg animate-pulse">Generating title...</p>
+            ) : (
+              <h1
+                ref={titleRef}
+                contentEditable
+                suppressContentEditableWarning
+                onBlur={handleTitleBlur}
+                className="text-lg font-display font-semibold text-foreground leading-snug focus:outline-none cursor-text"
+                style={{ caretColor: 'var(--color-primary)' }}
+              >
+                {title}
+              </h1>
+            )}
+          </div>
+          <button
+            onClick={() => setShowStylePicker(p => !p)}
+            disabled={generatingTitle}
+            title="Generate a new title"
+            className="opacity-0 group-hover:opacity-100 mt-1 text-xs text-muted-fg hover:text-foreground disabled:opacity-30 transition-all duration-200 shrink-0"
+          >
+            AI title
+          </button>
         </div>
-        <button
-          onClick={generateTitle}
-          disabled={generatingTitle}
-          title="Generate a new title"
-          className="opacity-0 group-hover:opacity-100 mt-1 text-xs text-muted-fg hover:text-foreground disabled:opacity-30 transition-all duration-200 shrink-0"
-        >
-          {generatingTitle ? '...' : 'AI title'}
-        </button>
+
+        {/* Style picker */}
+        {showStylePicker && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {TITLE_STYLES.map(s => (
+              <button
+                key={s.value}
+                onClick={() => generateTitle(s.value)}
+                className="px-3 h-7 rounded-full border border-border text-xs text-muted-fg hover:border-primary/40 hover:text-foreground transition-all duration-200"
+              >
+                {s.label}
+              </button>
+            ))}
+            <button
+              onClick={() => setShowStylePicker(false)}
+              className="px-3 h-7 rounded-full text-xs text-muted-fg/50 hover:text-muted-fg transition-colors duration-200"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tab bar */}

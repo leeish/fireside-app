@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { claudeComplete } from '@/lib/ai'
+import { getAIClient } from '@/lib/ai'
+
+const STYLE_INSTRUCTIONS: Record<string, string> = {
+  evocative: 'Evocative and emotional — captures the heart of the memory with feeling.',
+  witty:     'Witty and clever — a light touch of wordplay or dry humor that fits the story.',
+  playful:   'Playful and warm — fun, approachable, like something you\'d say to a friend.',
+  poetic:    'Poetic and lyrical — uses imagery or metaphor to give the title a timeless feel.',
+  simple:    'Simple and direct — plain language, no flourish, just what it\'s about.',
+}
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: conversationId } = await params
+  const body = await req.json().catch(() => ({}))
+  const style: string = body.style ?? 'evocative'
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -42,16 +52,25 @@ export async function POST(
     .map(t => t.role === 'biographer' ? `Q: ${t.content}` : `A: ${t.content}`)
     .join('\n\n')
 
-  const title = await claudeComplete({
-    system: `You write short, evocative titles for personal memoir entries — like chapter titles in a memoir. \
-Given a conversation transcript, return a single title of 3–8 words that captures the emotional core or subject. \
+  const styleNote = STYLE_INSTRUCTIONS[style] ?? STYLE_INSTRUCTIONS.evocative
+
+  const { client, model } = getAIClient()
+  const completion = await client.chat.completions.create({
+    model,
+    temperature: 0.8,
+    max_tokens: 50,
+    messages: [
+      {
+        role: 'system',
+        content: `You write titles for personal memoir entries — like chapter titles in a book. \
+Return a single title of 5–10 words. Style: ${styleNote} \
 No punctuation at the end. No quotes. No explanation. Just the title.`,
-    user: transcript,
-    maxTokens: 30,
-    temperature: 0.7,
+      },
+      { role: 'user', content: transcript },
+    ],
   })
 
-  const trimmedTitle = title.trim()
+  const trimmedTitle = (completion.choices[0].message.content ?? '').trim()
 
   await service
     .from('conversations')
