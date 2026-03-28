@@ -55,29 +55,32 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-md">
 
-        {/* Progress */}
+        {/* Progress dots */}
         <div className="flex gap-1.5 mb-8">
           {STEPS.map((_, i) => (
             <div
               key={i}
-              className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? 'bg-amber-600' : 'bg-stone-200'}`}
+              className={`h-1 flex-1 rounded-full transition-colors duration-500 ${i <= step ? 'bg-primary' : 'bg-border'}`}
             />
           ))}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-8">
+        <div
+          className="bg-card rounded-3xl border border-border p-8"
+          style={{ boxShadow: '0 10px 40px -10px rgba(44, 31, 20, 0.08)' }}
+        >
 
           {step === 0 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-semibold text-stone-800">Welcome to Fireside</h2>
-                <p className="text-stone-500 text-sm mt-1">Let's get you set up in about 30 seconds.</p>
+                <h2 className="text-xl font-display font-semibold text-foreground">Welcome to Fire<em>side</em></h2>
+                <p className="text-muted-fg text-sm mt-1">Let's get you set up in about 30 seconds.</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">What should we call you?</label>
+                <label className="block text-sm font-medium text-foreground mb-2">What should we call you?</label>
                 <input
                   type="text"
                   value={name}
@@ -85,7 +88,7 @@ export default function OnboardingPage() {
                   onKeyDown={e => { if (e.key === 'Enter' && canAdvance()) setStep(1) }}
                   placeholder="First name"
                   autoFocus
-                  className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  className="w-full h-12 px-4 bg-background border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
                 />
               </div>
             </div>
@@ -94,8 +97,8 @@ export default function OnboardingPage() {
           {step === 1 && (
             <div className="space-y-5">
               <div>
-                <h2 className="text-xl font-semibold text-stone-800">What's your life built around, {name}?</h2>
-                <p className="text-stone-500 text-sm mt-1">Pick a few — we'll make sure to ask about these.</p>
+                <h2 className="text-xl font-display font-semibold text-foreground">What's your life built around, {name}?</h2>
+                <p className="text-muted-fg text-sm mt-1">Pick a few — we'll make sure to ask about these.</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {INTERESTS.map(interest => (
@@ -103,10 +106,10 @@ export default function OnboardingPage() {
                     key={interest}
                     type="button"
                     onClick={() => toggleInterest(interest)}
-                    className={`py-1.5 px-3 rounded-full text-sm border transition-colors ${
+                    className={`py-1.5 px-4 rounded-full text-sm border transition-all duration-300 ${
                       interests.includes(interest)
-                        ? 'bg-amber-600 text-white border-amber-600'
-                        : 'border-stone-300 text-stone-700 hover:border-amber-400'
+                        ? 'bg-primary text-white border-primary'
+                        : 'border-border text-foreground/80 hover:border-primary/50 hover:text-foreground'
                     }`}
                   >
                     {interest}
@@ -122,7 +125,7 @@ export default function OnboardingPage() {
               <button
                 type="button"
                 onClick={() => setStep(s => s - 1)}
-                className="flex-1 py-2 border border-stone-300 text-stone-700 text-sm font-medium rounded-lg hover:bg-stone-50 transition-colors"
+                className="flex-1 h-11 border border-border text-foreground/80 text-sm font-medium rounded-full hover:bg-muted transition-all duration-300"
               >
                 Back
               </button>
@@ -132,7 +135,7 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={() => setStep(s => s + 1)}
                 disabled={!canAdvance()}
-                className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
+                className="flex-1 h-11 bg-primary hover:opacity-90 text-white text-sm font-medium rounded-full disabled:opacity-40 transition-all duration-300"
               >
                 Continue
               </button>
@@ -141,9 +144,9 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={finish}
                 disabled={saving}
-                className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+                className="flex-1 h-11 bg-primary hover:opacity-90 text-white text-sm font-medium rounded-full disabled:opacity-50 transition-all duration-300"
               >
-                {saving ? 'Saving…' : 'Start my story'}
+                {saving ? 'Saving...' : 'Start my story'}
               </button>
             )}
           </div>

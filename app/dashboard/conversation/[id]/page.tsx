@@ -45,15 +45,15 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   })
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-4 py-10">
 
         <div className="mb-8">
-          <Link href="/dashboard" className="text-xs text-stone-400 hover:text-stone-600 flex items-center gap-1 mb-6">
+          <Link href="/dashboard" className="text-xs text-muted-fg hover:text-foreground flex items-center gap-1 mb-6 transition-colors duration-300">
             &larr; Back
           </Link>
-          <p className="text-xs text-stone-400 mb-1">{openedDate}</p>
-          <h1 className="text-lg font-semibold text-stone-800 leading-snug">{conversation.topic}</h1>
+          <p className="text-xs text-muted-fg mb-1">{openedDate}</p>
+          <h1 className="text-lg font-display font-semibold text-foreground leading-snug">{conversation.topic}</h1>
         </div>
 
         <ConversationClient

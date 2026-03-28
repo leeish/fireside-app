@@ -31,15 +31,20 @@ export default function LoginPage() {
 
   if (sent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
-        <div className="w-full max-w-sm text-center space-y-3">
-          <h1 className="text-2xl font-semibold text-stone-800">Check your email</h1>
-          <p className="text-stone-500 text-sm">
-            We sent a sign-in link to <strong>{email}</strong>. Click it to continue.
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="w-full max-w-sm text-center space-y-4">
+          <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-primary" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-display font-semibold text-foreground">Check your inbox</h2>
+          <p className="text-muted-fg text-sm leading-relaxed">
+            We sent a sign-in link to <span className="text-foreground font-medium">{email}</span>. Click it to continue.
           </p>
           <button
             onClick={() => setSent(false)}
-            className="text-sm text-amber-600 hover:underline"
+            className="text-sm text-primary hover:opacity-70 transition-opacity duration-300"
           >
             Use a different email
           </button>
@@ -49,15 +54,25 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-stone-50">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold text-stone-800">Fireside</h1>
-          <p className="text-stone-500 text-sm mt-1">Your family story, told one question at a time.</p>
+
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-display font-semibold text-foreground tracking-tight">
+            Fire<em>side</em>
+          </h1>
+          <p className="text-muted-fg text-sm mt-2 leading-relaxed">
+            Your family story, told one question at a time.
+          </p>
         </div>
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-stone-200 p-8 space-y-4">
+
+        <form
+          onSubmit={handleSubmit}
+          className="bg-card rounded-3xl border border-border p-8 space-y-5"
+          style={{ boxShadow: '0 10px 40px -10px rgba(44, 31, 20, 0.08)' }}
+        >
           <div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">Email address</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Email address</label>
             <input
               type="email"
               value={email}
@@ -65,27 +80,29 @@ export default function LoginPage() {
               placeholder="you@example.com"
               required
               autoFocus
-              className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full h-12 px-4 bg-background border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
             />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+            className="w-full h-12 bg-primary hover:opacity-90 text-white text-sm font-medium rounded-full disabled:opacity-50 transition-all duration-300"
           >
-            {loading ? 'Sending link…' : 'Send sign-in link'}
+            {loading ? 'Sending link...' : 'Send sign-in link'}
           </button>
         </form>
-        <p className="text-center text-xs text-stone-400 mt-4">
+
+        <p className="text-center text-xs text-muted-fg mt-5">
           New or returning — same flow. No password needed.
         </p>
-        <p className="text-center text-xs text-stone-400 mt-2">
+        <p className="text-center text-xs text-muted-fg/70 mt-2">
           By signing in you agree to our{' '}
-          <a href="/terms" className="underline hover:text-stone-600">Terms</a>
+          <a href="/terms" className="underline hover:text-foreground transition-colors duration-300">Terms</a>
           {' '}and{' '}
-          <a href="/privacy" className="underline hover:text-stone-600">Privacy Policy</a>.
+          <a href="/privacy" className="underline hover:text-foreground transition-colors duration-300">Privacy Policy</a>.
         </p>
+
       </div>
     </div>
   )

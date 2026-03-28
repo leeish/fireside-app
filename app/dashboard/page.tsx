@@ -64,21 +64,26 @@ export default async function DashboardPage() {
   const activeConversation = conversations?.find(c => c.status === 'active')
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-4 py-10">
 
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-xl font-semibold text-stone-800">Fireside</h1>
+        <div className="flex items-center justify-between mb-10">
+          <h1 className="text-2xl font-display font-semibold text-foreground tracking-tight">
+            Fire<em>side</em>
+          </h1>
           <div className="flex items-center gap-4">
-            <p className="text-sm text-stone-400">{user.email}</p>
-            <Link href="/settings" className="text-sm text-stone-500 hover:text-stone-700">Settings</Link>
+            <p className="text-sm text-muted-fg hidden sm:block">{user.email}</p>
+            <Link href="/settings" className="text-sm text-muted-fg hover:text-foreground transition-colors duration-300">Settings</Link>
             <LogoutButton />
           </div>
         </div>
 
         {/* New user */}
         {!hasConversations && (
-          <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-8">
+          <div
+            className="bg-card rounded-3xl border border-border p-8"
+            style={{ boxShadow: '0 10px 40px -10px rgba(44, 31, 20, 0.07)' }}
+          >
             <FirstPromptPicker userName={userName} />
           </div>
         )}
@@ -87,7 +92,7 @@ export default async function DashboardPage() {
         {hasConversations && (
           <div className="space-y-6">
 
-            {/* Pipeline failed — processed turn exists but older than 10 mins with no queued prompt */}
+            {/* Pipeline failed */}
             {!isProcessing && !queuedPrompt && failedTurn && (
               <div className="bg-red-50 border border-red-200 rounded-2xl p-5">
                 <p className="text-sm text-red-700">
@@ -98,8 +103,11 @@ export default async function DashboardPage() {
 
             {/* Pipeline still running */}
             {isProcessing && (
-              <div className="bg-white border border-stone-200 rounded-2xl p-5 text-center">
-                <p className="text-stone-500 text-sm">Reading your response and crafting your next question...</p>
+              <div
+                className="bg-card border border-border rounded-3xl p-5 text-center"
+                style={{ boxShadow: '0 4px 20px -4px rgba(44, 31, 20, 0.06)' }}
+              >
+                <p className="text-muted-fg text-sm italic font-display">Reading your response and crafting your next question...</p>
               </div>
             )}
 
@@ -110,7 +118,7 @@ export default async function DashboardPage() {
 
             {/* Conversation list */}
             <div className="space-y-2">
-              <h2 className="text-sm font-medium text-stone-500 uppercase tracking-wide">
+              <h2 className="text-xs font-medium text-muted-fg uppercase tracking-widest mb-3">
                 Your story so far
               </h2>
               {conversations!.map(conv => {
@@ -121,13 +129,14 @@ export default async function DashboardPage() {
                   <Link
                     key={conv.id}
                     href={`/dashboard/conversation/${conv.id}`}
-                    className="block bg-white border border-stone-200 rounded-xl px-5 py-4 hover:border-amber-400 hover:shadow-sm transition-all"
+                    className="block bg-card border border-border rounded-2xl px-5 py-4 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 group"
+                    style={{ boxShadow: '0 2px 12px -4px rgba(44, 31, 20, 0.05)' }}
                   >
                     <div className="flex items-center justify-between gap-4">
-                      <p className="text-sm text-stone-700 leading-snug line-clamp-2 flex-1">
+                      <p className="text-sm text-foreground/80 leading-snug line-clamp-2 flex-1 group-hover:text-foreground transition-colors duration-300">
                         {conv.topic ?? 'Untitled'}
                       </p>
-                      <p className="text-xs text-stone-400 shrink-0">{date}</p>
+                      <p className="text-xs text-muted-fg shrink-0">{date}</p>
                     </div>
                   </Link>
                 )
@@ -138,7 +147,7 @@ export default async function DashboardPage() {
         )}
 
         <div className="mt-12 text-center">
-          <Link href="/dashboard/graph" className="text-xs text-stone-300 hover:text-stone-400">
+          <Link href="/dashboard/graph" className="text-xs text-border hover:text-muted-fg transition-colors duration-300">
             debug: view narrative graph
           </Link>
         </div>

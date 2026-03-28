@@ -135,8 +135,8 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
   if (stage === 'submitted') {
     return (
       <div className="text-center space-y-2 py-8">
-        <h2 className="text-xl font-semibold text-stone-800">Your story has begun.</h2>
-        <p className="text-stone-500 text-sm">We're reading your response and crafting your next question.</p>
+        <h2 className="text-xl font-display font-semibold text-foreground">Your story has begun.</h2>
+        <p className="text-muted-fg text-sm">We're reading your response and crafting your next question.</p>
       </div>
     )
   }
@@ -144,8 +144,8 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
   if (stage === 'draft-saved') {
     return (
       <div className="text-center space-y-2 py-8">
-        <h2 className="text-xl font-semibold text-stone-800">Saved for later.</h2>
-        <p className="text-stone-500 text-sm">Your prompt is waiting whenever you're ready to finish.</p>
+        <h2 className="text-xl font-display font-semibold text-foreground">Saved for later.</h2>
+        <p className="text-muted-fg text-sm">Your prompt is waiting whenever you're ready to finish.</p>
       </div>
     )
   }
@@ -153,8 +153,8 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
   if (stage === 'email-sent') {
     return (
       <div className="text-center space-y-2 py-8">
-        <h2 className="text-xl font-semibold text-stone-800">On its way.</h2>
-        <p className="text-stone-500 text-sm">
+        <h2 className="text-xl font-display font-semibold text-foreground">On its way.</h2>
+        <p className="text-muted-fg text-sm">
           We've sent your first prompt to your email. Reply whenever you're ready — there's no rush.
         </p>
       </div>
@@ -167,11 +167,11 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
         <div>
           <button
             onClick={() => { setStage('pick'); setResponse('') }}
-            className="text-xs text-stone-400 hover:text-stone-600 mb-4 flex items-center gap-1"
+            className="text-xs text-muted-fg hover:text-foreground mb-4 flex items-center gap-1 transition-colors duration-300"
           >
-            ← Choose a different question
+            &larr; Choose a different question
           </button>
-          <p className="text-stone-700 text-base leading-relaxed font-medium">{selected.text}</p>
+          <p className="font-display italic text-foreground text-lg leading-relaxed">{selected.text}</p>
         </div>
         <div className="relative">
           <textarea
@@ -180,17 +180,17 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
             placeholder="Take your time. There's no wrong answer."
             rows={7}
             autoFocus
-            className="w-full px-4 py-3 border border-stone-300 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+            className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none transition-all duration-300"
           />
           {isSpeechSupported && (
             <button
               type="button"
               onClick={toggleRecording}
               title={isRecording ? 'Stop recording' : 'Speak your answer'}
-              className={`absolute bottom-3 right-3 p-1.5 rounded-full transition-colors ${
+              className={`absolute bottom-3 right-3 p-1.5 rounded-full transition-all duration-300 ${
                 isRecording
                   ? 'text-red-500 bg-red-50 hover:bg-red-100 animate-pulse'
-                  : 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'
+                  : 'text-muted-fg hover:text-foreground hover:bg-muted'
               }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
@@ -205,21 +205,21 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
           <button
             onClick={handleBegin}
             disabled={loading || !response.trim()}
-            className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
+            className="w-full h-11 bg-primary hover:opacity-90 text-white text-sm font-medium rounded-full disabled:opacity-40 transition-all duration-300"
           >
-            {loading ? 'Saving…' : 'Begin my story'}
+            {loading ? 'Saving...' : 'Begin my story'}
           </button>
           <button
             onClick={handleFinishLater}
             disabled={loading}
-            className="w-full py-2.5 border border-stone-300 text-stone-600 text-sm rounded-lg hover:bg-stone-50 transition-colors disabled:opacity-40"
+            className="w-full h-11 border border-border text-foreground/70 text-sm rounded-full hover:bg-muted transition-all duration-300 disabled:opacity-40"
           >
             Finish later
           </button>
           <button
             onClick={handleEmailInstead}
             disabled={loading}
-            className="w-full py-2 text-stone-400 text-sm hover:text-stone-600 transition-colors disabled:opacity-40"
+            className="w-full py-2 text-muted-fg text-sm hover:text-foreground transition-colors duration-300 disabled:opacity-40"
           >
             Email me this question instead
           </button>
@@ -231,18 +231,19 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-semibold text-stone-800">Where would you like to begin, {userName}?</h2>
-        <p className="text-stone-500 text-sm mt-1">Choose the question that feels most right, right now.</p>
+        <h2 className="text-xl font-display font-semibold text-foreground">Where would you like to begin, {userName}?</h2>
+        <p className="text-muted-fg text-sm mt-1">Choose the question that feels most right, right now.</p>
       </div>
       <div className="space-y-3">
         {PROMPTS.map((prompt) => (
           <button
             key={prompt.category}
             onClick={() => { setSelected(prompt); setStage('answer') }}
-            className="w-full text-left p-4 bg-white border border-stone-200 rounded-xl hover:border-amber-400 hover:shadow-sm transition-all group"
+            className="w-full text-left p-5 bg-background border border-border rounded-2xl hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 group"
+            style={{ boxShadow: '0 2px 12px -4px rgba(44, 31, 20, 0.04)' }}
           >
-            <p className="text-xs font-medium text-amber-600 uppercase tracking-wide mb-1">{prompt.teaser}</p>
-            <p className="text-sm text-stone-700 leading-relaxed group-hover:text-stone-900">{prompt.text}</p>
+            <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">{prompt.teaser}</p>
+            <p className="font-display italic text-foreground/80 text-sm leading-relaxed group-hover:text-foreground transition-colors duration-300">{prompt.text}</p>
           </button>
         ))}
       </div>
