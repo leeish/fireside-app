@@ -168,6 +168,32 @@ export default function ConversationClient({
   }
 
   const isSettled = status === 'settled'
+  const isWrapOffered = status === 'wrap_offered'
+  const [settling, setSettling] = useState(false)
+  const [continuing, setContinuing] = useState(false)
+
+  async function handleSettle() {
+    setSettling(true)
+    await fetch('/api/conversation/settle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId }),
+    })
+    setStatus('settled')
+    setSettling(false)
+  }
+
+  async function handleContinue() {
+    setContinuing(true)
+    await fetch('/api/conversation/continue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversationId }),
+    })
+    setStatus('active')
+    setMode(null)
+    setContinuing(false)
+  }
 
   return (
     <div>
@@ -202,7 +228,27 @@ export default function ConversationClient({
           <p className="text-sm text-stone-400 text-center py-4">
             This conversation is complete. Your story has been captured.
           </p>
-        ) : mode === null ? (
+        ) : isWrapOffered && !waitingForAI ? (
+          // Wrap offer — user decides whether to close or keep going
+          <div className="space-y-3">
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleSettle}
+                disabled={settling || continuing}
+                className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {settling ? 'Capturing...' : 'Capture it'}
+              </button>
+              <button
+                onClick={handleContinue}
+                disabled={settling || continuing}
+                className="w-full py-2.5 border border-stone-300 text-stone-600 text-sm font-medium rounded-lg hover:bg-stone-50 disabled:opacity-50 transition-colors"
+              >
+                {continuing ? 'Continuing...' : 'Keep going'}
+              </button>
+            </div>
+          </div>
+        ) : mode === null && !isWrapOffered ? (
           // Mode selection
           <div className="space-y-3">
             <p className="text-xs font-medium text-stone-400 uppercase tracking-wide">How do you want to continue?</p>

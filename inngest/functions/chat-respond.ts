@@ -10,31 +10,33 @@ type ChatRespondEvent = {
   }
 }
 
-const CHAT_SYSTEM = `You are a biographer having a real-time conversation with someone to help capture their life story. Your job is to deepen the current topic through thoughtful follow-up questions.
+// Biographer voice adapted for real-time conversation.
+// Key differences from question-generation: react before asking, stay on spine, detect completion.
+const CHAT_SYSTEM = `You are a thoughtful, patient biographer having a real-time conversation with someone to help capture their life story.
 
-Rules:
-- Stay on the spine (the current topic). Do not chase new threads mid-conversation — note them internally, do not follow them.
-- React briefly to what they just said (one sentence maximum), then ask the next question. Silence before a good question is better than a filler sentence.
-- Questions must be specific and grounded in what they just shared — not generic.
-- Never ask two questions at once.
-- If the person seems to be winding down (short responses, single sentences, trailing off), set shouldWrap to true.
+You are not running an interview from a list. You are someone who has been listening closely and genuinely cares about the story unfolding in front of you. Your responses should feel like they came from a person, not a product.
+
+THE SPINE: This conversation was opened with a specific question on a specific topic. Your job is to deepen that topic. Do not redirect to other interests or stories — even if you know them from the person's background. If a new thread surfaces mid-conversation, note it quietly and stay with what was started. The spine is everything.
+
+YOUR RHYTHM:
+- Briefly acknowledge what they just said — one sentence maximum. Only when something specific earns it. Filler ("That's so interesting!") is worse than nothing.
+- Then ask the next question. Specific, grounded in the exact words and details they just shared.
+- One question only. Never two questions in one response.
+- Never start with "I". It centers you, not them.
+- Never generic. If the question could apply to anyone, it is wrong.
+- Three sentences maximum for the entire response.
+
+WHEN THE STORY FEELS TOLD:
+Watch for these signals: has the spine been reasonably covered? Are responses getting shorter, more fragmented, trailing off? Has the person circled back to things already said?
+
+When the story feels told, offer a wrap. Name one specific thing they shared that they probably haven't written down before, then ask if there's more or if it's time to capture it.
+
+Wrap offer example: "You just told me about watching the Cowboys destroy the Bills with your dad at his friend's house — the blackjack and all of it. I don't think you've ever written that down before. Does that feel like the story for now, or is there more you want to add?"
+
+A wrap offer is not a closing — it is a genuine question. The person may say there is more.
 
 Return JSON with exactly these fields:
-{ "response": "your response text", "shouldWrap": false }`
-
-const WRAP_SYSTEM = `You are a biographer wrapping up a conversation. The person has shared enough on this topic.
-
-Write a closing response that:
-1. Names what was captured — one specific sentence referencing what they actually shared
-2. Affirms it without being effusive
-3. Offers a gentle close — no pressure, no next steps
-
-Example: "You just told me about the night before your mission farewell — I don't think you've ever written that down before. It's there now."
-
-2-3 sentences maximum. Warm but not gushing.
-
-Return JSON with exactly these fields:
-{ "response": "your closing text", "shouldWrap": true }`
+{ "response": "your full response text", "wrapOffer": false }`
 
 export const chatRespond = inngest.createFunction(
   { id: 'chat-respond', retries: 2, triggers: [{ event: 'fireside/chat.respond' }] },
@@ -43,14 +45,14 @@ export const chatRespond = inngest.createFunction(
     const supabase = createServiceClient()
     const { client, model } = getAIClient()
 
-    // Load narrative graph
+    // Load narrative graph for background context
     const { data: narrative } = await supabase
       .from('narratives')
       .select('graph, rolling_summary')
       .eq('user_id', userId)
       .single()
 
-    // Load recent turns (up to 8, reversed to get chronological order)
+    // Load recent turns — last 8 for context window, reversed to chronological
     const { data: rawTurns } = await supabase
       .from('turns')
       .select('id, role, content, created_at')
@@ -60,7 +62,6 @@ export const chatRespond = inngest.createFunction(
 
     const recentTurns = (rawTurns ?? []).reverse()
 
-    // Decrypt user turns for context
     const decryptedTurns = recentTurns.map(t => ({
       ...t,
       content: t.role === 'user'
@@ -68,13 +69,10 @@ export const chatRespond = inngest.createFunction(
         : t.content,
     }))
 
-    // Wrap conditions: 5+ user turns, or 3+ turns with a short last response
-    const userTurns = decryptedTurns.filter(t => t.role === 'user')
-    const lastUserContent = userTurns[userTurns.length - 1]?.content ?? ''
-    const shouldWrap = userTurns.length >= 5 || (userTurns.length >= 3 && lastUserContent.length < 80)
-
+    // Background context — keep brief so it informs without redirecting
     const graphContext = narrative?.rolling_summary
-      || JSON.stringify(narrative?.graph ?? {}).slice(0, 1200)
+      ? `Background on this person: ${narrative.rolling_summary}`
+      : ''
 
     const conversationContext = decryptedTurns
       .map(t => `${t.role === 'user' ? 'Person' : 'Biographer'}: ${t.content}`)
@@ -86,16 +84,16 @@ export const chatRespond = inngest.createFunction(
       store: false,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: shouldWrap ? WRAP_SYSTEM : CHAT_SYSTEM },
+        { role: 'system', content: CHAT_SYSTEM },
         {
           role: 'user',
-          content: `Person's background:\n${graphContext}\n\nConversation so far:\n${conversationContext}\n\nGenerate your next response.`,
+          content: `${graphContext}\n\nConversation:\n${conversationContext}\n\nGenerate your next response.`,
         },
       ],
     })
 
     const raw = completion.choices[0].message.content ?? '{}'
-    const parsed = JSON.parse(raw) as { response: string; shouldWrap: boolean }
+    const parsed = JSON.parse(raw) as { response: string; wrapOffer: boolean }
     const responseText = parsed.response?.trim() ?? ''
 
     if (!responseText) throw new Error('Empty response from LLM')
@@ -110,22 +108,14 @@ export const chatRespond = inngest.createFunction(
       processed: true,
     })
 
-    // If wrapping, settle the conversation and enrich the last user turn
-    if (parsed.shouldWrap || shouldWrap) {
+    // If LLM is offering to wrap, set conversation status to wrap_offered
+    if (parsed.wrapOffer) {
       await supabase
         .from('conversations')
-        .update({ status: 'settled' })
+        .update({ status: 'wrap_offered' })
         .eq('id', conversationId)
-
-      const lastUserTurn = [...userTurns].pop()
-      if (lastUserTurn) {
-        await inngest.send({
-          name: 'fireside/entry.enrich',
-          data: { turnId: lastUserTurn.id },
-        })
-      }
     }
 
-    return { conversationId, wrapped: parsed.shouldWrap || shouldWrap }
+    return { conversationId, wrapOffer: parsed.wrapOffer }
   }
 )
