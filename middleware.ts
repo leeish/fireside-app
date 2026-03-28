@@ -30,7 +30,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isAuthRoute = pathname.startsWith('/login')
   const isOnboarding = pathname.startsWith('/onboarding')
-  const isCallback = pathname.startsWith('/auth/callback')
+  const isCallback = pathname.startsWith('/auth/callback') || pathname.startsWith('/auth/confirm')
   const isPublic = pathname.startsWith('/privacy') || pathname.startsWith('/terms')
   const isInngest = pathname.startsWith('/api/inngest')
   const isWebhook = pathname.startsWith('/api/email/inbound')
