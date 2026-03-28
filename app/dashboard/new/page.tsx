@@ -75,7 +75,7 @@ export default function NewEntryPage() {
             &larr; Back
           </Link>
           <h1 className="text-2xl font-display font-semibold text-foreground">Something on your mind?</h1>
-          <p className="text-sm text-muted-fg mt-1">Write about whatever's with you today. The biographer will follow your lead.</p>
+          <p className="text-sm text-muted-fg mt-1">Write about whatever's with you today. The biographer will follow your lead, if you need it.</p>
         </div>
 
         <div className="space-y-4">
