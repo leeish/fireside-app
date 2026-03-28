@@ -18,14 +18,6 @@ export default function CleanupTab({
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
 
-  if (!entry) {
-    return (
-      <p className="text-sm text-muted-fg text-center py-12 font-display italic">
-        Your entry is still being written. Check back in a moment.
-      </p>
-    )
-  }
-
   async function handleGenerate(force = false) {
     setGenerating(true)
     setError('')

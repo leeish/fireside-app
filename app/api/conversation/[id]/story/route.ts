@@ -48,13 +48,28 @@ export async function POST(
   if (!conversation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (conversation.status !== 'settled') return NextResponse.json({ error: 'Conversation not settled' }, { status: 409 })
 
-  const { data: entry } = await service
+  let { data: entry } = await service
     .from('entries')
     .select('id')
     .eq('conversation_id', conversationId)
     .maybeSingle()
 
-  if (!entry) return NextResponse.json({ error: 'Entry not ready yet' }, { status: 404 })
+  // Create entry row on the fly for conversations settled before entry creation was wired up
+  if (!entry) {
+    const { data: created } = await service
+      .from('entries')
+      .insert({
+        conversation_id: conversationId,
+        user_id: user.id,
+        status: 'settled',
+        origin: 'biographer',
+        settled_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+    if (!created) return NextResponse.json({ error: 'Failed to create entry' }, { status: 500 })
+    entry = created
+  }
 
   // Fetch and decrypt turns to use as source
   const { data: turns } = await service

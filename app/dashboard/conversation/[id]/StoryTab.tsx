@@ -34,14 +34,6 @@ export default function StoryTab({
 
   const isDirty = content !== savedContent
 
-  if (!entry) {
-    return (
-      <p className="text-sm text-muted-fg text-center py-12 font-display italic">
-        Your entry is still being written. Check back in a moment.
-      </p>
-    )
-  }
-
   async function handleGenerate() {
     setGenerating(true)
     setError('')
