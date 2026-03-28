@@ -70,7 +70,7 @@ export default function SettledView({
       </div>
 
       {/* Transcript */}
-      {tab === 'transcript' && (
+      <div className={tab !== 'transcript' ? 'hidden' : ''}>
         <div>
           <div className="space-y-7 mb-10">
             {turns.map(turn => (
@@ -126,17 +126,17 @@ export default function SettledView({
             )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Cleaned Up */}
-      {tab === 'cleanup' && (
+      <div className={tab !== 'cleanup' ? 'hidden' : ''}>
         <CleanupTab conversationId={conversationId} entry={entry} />
-      )}
+      </div>
 
       {/* Story Entry */}
-      {tab === 'story' && (
+      <div className={tab !== 'story' ? 'hidden' : ''}>
         <StoryTab conversationId={conversationId} entry={entry} />
-      )}
+      </div>
     </div>
   )
 }
