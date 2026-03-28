@@ -25,7 +25,7 @@ export default async function DashboardPage() {
       .single(),
     supabase
       .from('conversations')
-      .select('id, topic, status, opened_at, channel, entries(id, cleaned_content, story_content)')
+      .select('id, topic, status, opened_at, channel, entries(id)')
       .eq('user_id', user.id)
       .neq('status', 'archived')
       .order('opened_at', { ascending: false })
@@ -166,18 +166,6 @@ export default async function DashboardPage() {
                         <>
                           <span className="text-border/60 text-xs">·</span>
                           <span className="text-xs text-muted-fg">Entry</span>
-                        </>
-                      )}
-                      {entry?.cleaned_content && (
-                        <>
-                          <span className="text-border/60 text-xs">·</span>
-                          <span className="text-xs text-muted-fg">Cleaned up</span>
-                        </>
-                      )}
-                      {entry?.story_content && (
-                        <>
-                          <span className="text-border/60 text-xs">·</span>
-                          <span className="text-xs text-muted-fg">Story</span>
                         </>
                       )}
                     </div>
