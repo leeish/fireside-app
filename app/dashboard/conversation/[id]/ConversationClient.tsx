@@ -233,6 +233,19 @@ export default function ConversationClient({
 
       {/* Input area */}
       <div className="border-t border-border/40 pt-8">
+        {!isWrapOffered && !waitingForAI && (
+          <p className="text-xs text-muted-fg/60 text-center mb-5">
+            The biographer will suggest wrapping up when the entry feels complete.{' '}
+            <button
+              onClick={handleSettle}
+              disabled={settling}
+              className="underline underline-offset-2 hover:text-muted-fg transition-colors duration-300 disabled:opacity-50"
+            >
+              {settling ? 'Capturing...' : 'Capture what you have now'}
+            </button>
+          </p>
+        )}
+
         {isWrapOffered && !waitingForAI ? (
           <div className="space-y-3">
             <div className="flex flex-col gap-2">
