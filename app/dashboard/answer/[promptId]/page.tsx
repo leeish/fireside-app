@@ -22,13 +22,13 @@ export default async function AnswerPage({ params }: { params: Promise<{ promptI
 
   if (!qp) redirect('/dashboard')
 
-  // If deliver-prompt already ran (email sent), a conversation exists — find it by topic match
-  if (qp.delivery_state === 'email_sent') {
+  // If a conversation already exists for this prompt (email delivered, or already opened in-app),
+  // find it and redirect rather than creating a duplicate.
+  if (qp.delivery_state === 'email_sent' || qp.delivery_state === 'in_app_seen') {
     const { data: existing } = await service
       .from('conversations')
       .select('id')
       .eq('user_id', user.id)
-      .eq('status', 'active')
       .eq('topic', qp.question.slice(0, 120))
       .order('opened_at', { ascending: false })
       .limit(1)
