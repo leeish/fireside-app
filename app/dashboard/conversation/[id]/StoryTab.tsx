@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type Intensity = 'light' | 'medium' | 'full'
 
@@ -31,8 +31,16 @@ export default function StoryTab({
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const editorRef = useRef<HTMLDivElement>(null)
 
   const isDirty = content !== savedContent
+
+  // Sync editor content when generation produces new text
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerText !== content) {
+      editorRef.current.innerText = content
+    }
+  }, [content])
 
   async function handleGenerate() {
     setGenerating(true)
@@ -110,12 +118,13 @@ export default function StoryTab({
         </div>
       ) : (
         <div className="space-y-4">
-          <textarea
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            rows={16}
-            className="w-full px-5 py-4 border border-border rounded-2xl text-sm text-foreground leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none transition-all duration-300"
-            style={{ backgroundColor: 'var(--fs-surface)' }}
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={e => setContent((e.currentTarget as HTMLDivElement).innerText)}
+            className="text-sm text-foreground leading-relaxed whitespace-pre-wrap focus:outline-none min-h-[12rem] cursor-text"
+            style={{ caretColor: 'var(--color-primary)' }}
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex items-center justify-between">
