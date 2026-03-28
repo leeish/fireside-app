@@ -95,6 +95,7 @@ export const deliverPrompt = inngest.createFunction(
       userName: user.display_name ?? user.email,
       promptText: qp.question,
       conversationId: conversation.id,
+      userId,
     })
 
     // Mark queued prompt as email_sent

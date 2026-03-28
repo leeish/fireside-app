@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, timingSafeEqual } from 'crypto'
 
 const ALGORITHM = 'aes-256-gcm'
 const IV_LENGTH = 12
@@ -15,6 +15,31 @@ export function encrypt(plaintext: string, keyHex: string): string {
   const tag = cipher.getAuthTag()
 
   return Buffer.concat([iv, encrypted, tag]).toString('base64')
+}
+
+// Generates a URL-safe HMAC token encoding a userId for unsubscribe links.
+// Format: base64url(userId) . base64url(hmac)
+export function createUnsubscribeToken(userId: string, secret: string): string {
+  const payload = Buffer.from(userId).toString('base64url')
+  const sig = createHmac('sha256', secret).update(userId).digest('base64url')
+  return `${payload}.${sig}`
+}
+
+// Verifies and decodes an unsubscribe token. Returns userId or null if invalid.
+export function verifyUnsubscribeToken(token: string, secret: string): string | null {
+  try {
+    const [payload, sig] = token.split('.')
+    if (!payload || !sig) return null
+    const userId = Buffer.from(payload, 'base64url').toString('utf8')
+    const expected = createHmac('sha256', secret).update(userId).digest('base64url')
+    const sigBuf = Buffer.from(sig, 'base64url')
+    const expBuf = Buffer.from(expected, 'base64url')
+    if (sigBuf.length !== expBuf.length) return null
+    if (!timingSafeEqual(sigBuf, expBuf)) return null
+    return userId
+  } catch {
+    return null
+  }
 }
 
 // Decrypts a base64 string produced by encrypt().
