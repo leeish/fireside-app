@@ -68,8 +68,7 @@ export default async function DashboardPage() {
       <div className="sticky top-4 z-40 px-4">
         <div
           className="max-w-2xl mx-auto flex items-center justify-between px-6 py-3 rounded-full border border-border/60 backdrop-blur-md"
-            style={{ backgroundColor: 'var(--fs-glass)' }}
-          style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.12)' }}
+          style={{ backgroundColor: 'var(--fs-glass)', boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.12)' }}
         >
           <h1 className="text-xl font-display font-semibold text-foreground tracking-tight">
             Fire<em>side</em>
