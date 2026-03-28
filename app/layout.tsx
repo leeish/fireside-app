@@ -35,8 +35,20 @@ export default function RootLayout({
       lang="en"
       className={`${fraunces.variable} ${nunito.variable} ${geistMono.variable} h-full`}
     >
+      <head>
+        {/* Set theme before paint to prevent flash */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          (function() {
+            try {
+              var stored = localStorage.getItem('theme');
+              var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+              document.documentElement.setAttribute('data-theme', theme);
+            } catch(e) {}
+          })();
+        `}} />
+      </head>
       <body className="min-h-full flex flex-col antialiased">
-        {/* Paper grain texture overlay — botanical design signature */}
+        {/* Paper grain texture overlay */}
         <div
           className="pointer-events-none fixed inset-0 z-50 opacity-[0.018]"
           style={{

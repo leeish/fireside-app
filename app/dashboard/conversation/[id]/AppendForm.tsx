@@ -93,7 +93,7 @@ export default function AppendForm({ conversationId }: { conversationId: string 
           onChange={e => setResponse(e.target.value)}
           placeholder="Continue the thought, add a detail, or take it somewhere new."
           rows={5}
-          className="w-full px-5 py-4 bg-white/50 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none transition-all duration-300"
+          className="w-full px-5 py-4 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none transition-all duration-300" style={{ backgroundColor: "var(--fs-surface)" }}
         />
         {isSpeechSupported && (
           <button

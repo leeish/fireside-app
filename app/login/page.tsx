@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import ThemeToggle from '@/app/components/ThemeToggle'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -55,6 +56,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
+      <div className="fixed top-4 right-4"><ThemeToggle /></div>
       <div className="w-full max-w-sm">
 
         <div className="text-center mb-10">
@@ -80,7 +82,8 @@ export default function LoginPage() {
               placeholder="you@example.com"
               required
               autoFocus
-              className="w-full h-12 px-5 bg-white/50 border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
+              className="w-full h-12 px-5 border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
+            style={{ backgroundColor: 'var(--fs-surface)' }}
             />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}

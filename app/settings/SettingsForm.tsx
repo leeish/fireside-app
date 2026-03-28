@@ -84,7 +84,8 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
-            className="w-full h-12 px-5 bg-white/50 border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
+            className="w-full h-12 px-5 border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
+            style={{ backgroundColor: 'var(--fs-surface)' }}
           />
         </div>
         <div>

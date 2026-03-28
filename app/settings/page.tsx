@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import SettingsForm from './SettingsForm'
+import ThemeToggle from '@/app/components/ThemeToggle'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -21,7 +22,10 @@ export default async function SettingsPage() {
             <h1 className="text-2xl font-display font-semibold text-foreground">Settings</h1>
             <p className="text-muted-fg text-sm mt-1">Manage your account and delivery preferences.</p>
           </div>
-          <a href="/dashboard" className="text-sm text-primary hover:opacity-70 transition-opacity duration-300">Back to dashboard</a>
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <a href="/dashboard" className="text-sm text-primary hover:opacity-70 transition-opacity duration-300">Back</a>
+          </div>
         </div>
         <SettingsForm
           displayName={profile?.display_name ?? ''}

@@ -292,7 +292,7 @@ export default function ConversationClient({
                 }
                 rows={5}
                 disabled={waitingForAI}
-                className="w-full px-5 py-4 bg-white/50 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none disabled:opacity-50 transition-all duration-300"
+                className="w-full px-5 py-4 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none disabled:opacity-50 transition-all duration-300" style={{ backgroundColor: "var(--fs-surface)" }}
               />
               {isSpeechSupported && !waitingForAI && (
                 <button

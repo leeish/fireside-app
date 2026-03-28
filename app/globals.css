@@ -10,6 +10,22 @@
   --fs-muted-fg: #78786C;
   --fs-border: #DED8CF;
   --fs-accent: #E6DCCD;
+  --fs-surface: rgba(255, 255, 255, 0.5);
+  --fs-glass: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] {
+  --fs-bg: #181C17;
+  --fs-fg: #EDE9E4;
+  --fs-primary: #7A9870;
+  --fs-secondary: #C18C5D;
+  --fs-card: #1E231D;
+  --fs-muted: #252B24;
+  --fs-muted-fg: #8A8A7E;
+  --fs-border: #323830;
+  --fs-accent: #2A3028;
+  --fs-surface: rgba(255, 255, 255, 0.04);
+  --fs-glass: rgba(24, 28, 23, 0.8);
 }
 
 @theme inline {
