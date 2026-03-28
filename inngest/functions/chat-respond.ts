@@ -1,7 +1,7 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { chatComplete, claudeComplete } from '@/lib/ai'
+import { chatComplete } from '@/lib/ai'
 
 type ChatRespondEvent = {
   data: {
@@ -26,25 +26,12 @@ YOUR RHYTHM:
 - Three sentences maximum for the entire response.
 - Vary your sentence structure. Not every question should start the same way.
 
-Return JSON with exactly this field:
-{ "response": "your full response text" }`
+KNOWING WHEN TO WRAP: You are watching the conversation as it unfolds. When the spine feels reasonably told — the core story has been shared, the person seems satisfied, or their responses are getting shorter and more final — offer a wrap instead of another question. Name one specific thing they shared using their exact words, tell them you don't think they've written that down before, then ask if there's more or if it's time to capture it. A wrap offer is not a closing — it is a genuine question. Set "wrap" to true when you do this.
 
-const WRAP_ASSESSMENT_PROMPT = `You are assessing whether a biographical conversation has reached a natural resting point.
+Example wrap: "You just told me about watching the Cowboys destroy the Bills with your dad at his friend's house — the blackjack and all of it. I don't think you've ever written that down before. Does that feel like the story for now, or is there more you want to add?"
 
-Look at the full conversation and return JSON with exactly this field:
-{ "decision": "continue" | "wrap_offer" | "energy_drop" }
-
-- "continue": the story still has material to uncover, energy is present
-- "wrap_offer": the spine feels reasonably told, a good stopping point, person seems satisfied
-- "energy_drop": responses are getting shorter, more fragmented, trailing off — the person may be running out of steam
-
-Return only JSON. No explanation.`
-
-const WRAP_OFFER_INSTRUCTION = `The assessment indicates this conversation may be at a natural resting point. Offer a wrap in your response. Name one specific thing they shared — using their exact words, not a paraphrase — that they probably haven't written down before. Then ask if there's more or if it's time to capture it.
-
-Example: "You just told me about watching the Cowboys destroy the Bills with your dad at his friend's house — the blackjack and all of it. I don't think you've ever written that down before. Does that feel like the story for now, or is there more you want to add?"
-
-A wrap offer is not a closing — it is a genuine question.`
+Return JSON with exactly these fields:
+{ "response": "your full response text", "wrap": false }`
 
 export const chatRespond = inngest.createFunction(
   { id: 'chat-respond', retries: 2, triggers: [{ event: 'fireside/chat.respond' }] },
@@ -59,7 +46,7 @@ export const chatRespond = inngest.createFunction(
       .eq('user_id', userId)
       .single()
 
-    // Load all turns for full context (wrap assessment needs the complete arc)
+    // Load all turns
     const { data: rawTurns } = await supabase
       .from('turns')
       .select('id, role, content, created_at')
@@ -75,32 +62,7 @@ export const chatRespond = inngest.createFunction(
         : t.content,
     }))
 
-    // Count user turns for periodic wrap assessment
-    const userTurnCount = decryptedTurns.filter(t => t.role === 'user').length
-
-    // Periodic wrap assessment — every 3 user turns, starting at turn 3
-    let wrapAssessment: 'continue' | 'wrap_offer' | 'energy_drop' = 'continue'
-    if (userTurnCount > 0 && userTurnCount % 3 === 0) {
-      const conversationContext = decryptedTurns
-        .map(t => `${t.role === 'user' ? 'Person' : 'Biographer'}: ${t.content}`)
-        .join('\n\n')
-      try {
-        const raw = await claudeComplete({
-          system: WRAP_ASSESSMENT_PROMPT,
-          user: `Conversation so far:\n\n${conversationContext}`,
-          temperature: 0,
-          maxTokens: 50,
-        })
-        const parsed = JSON.parse(raw) as { decision: string }
-        if (['continue', 'wrap_offer', 'energy_drop'].includes(parsed.decision)) {
-          wrapAssessment = parsed.decision as typeof wrapAssessment
-        }
-      } catch {
-        // assessment failed — default to continue
-      }
-    }
-
-    // Use last 10 turns for the actual chat context window
+    // Use last 10 turns for context window
     const recentTurns = decryptedTurns.slice(-10)
 
     // Build proper alternating messages array — 'biographer' turns become 'assistant'
@@ -108,17 +70,6 @@ export const chatRespond = inngest.createFunction(
       role: t.role === 'user' ? 'user' : 'assistant',
       content: t.content,
     }))
-
-    // Append wrap instruction to the last user message when assessment calls for it
-    if (wrapAssessment !== 'continue' && chatMessages.length > 0) {
-      const lastIdx = chatMessages.length - 1
-      if (chatMessages[lastIdx].role === 'user') {
-        chatMessages[lastIdx] = {
-          ...chatMessages[lastIdx],
-          content: chatMessages[lastIdx].content + '\n\n' + WRAP_OFFER_INSTRUCTION,
-        }
-      }
-    }
 
     // Background context goes in the system prompt so it frames every turn
     const systemPrompt = narrative?.rolling_summary
@@ -132,7 +83,7 @@ export const chatRespond = inngest.createFunction(
       maxTokens: 300,
     })
 
-    const parsed = JSON.parse(raw) as { response: string }
+    const parsed = JSON.parse(raw) as { response: string; wrap?: boolean }
     const responseText = parsed.response?.trim() ?? ''
 
     if (!responseText) throw new Error('Empty response from chat model')
@@ -147,14 +98,14 @@ export const chatRespond = inngest.createFunction(
       processed: true,
     })
 
-    // If assessment flagged a wrap, set conversation status to wrap_offered
-    if (wrapAssessment !== 'continue') {
+    // Model signals wrap — update conversation status
+    if (parsed.wrap === true) {
       await supabase
         .from('conversations')
         .update({ status: 'wrap_offered' })
         .eq('id', conversationId)
     }
 
-    return { conversationId, wrapAssessment }
+    return { conversationId, wrap: parsed.wrap ?? false }
   }
 )
