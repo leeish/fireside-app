@@ -52,7 +52,7 @@ export default function CleanupTab({
         </p>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
-          onClick={handleGenerate}
+          onClick={() => handleGenerate()}
           disabled={generating}
           className="px-6 h-10 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full disabled:opacity-50 hover:scale-105 active:scale-95 disabled:scale-100 transition-all duration-300"
           style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}

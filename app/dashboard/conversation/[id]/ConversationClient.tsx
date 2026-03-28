@@ -168,6 +168,8 @@ export default function ConversationClient({
   const isWrapOffered = status === 'wrap_offered'
   const [settling, setSettling] = useState(false)
   const [continuing, setContinuing] = useState(false)
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
+  const [archiving, setArchiving] = useState(false)
 
   async function handleSettle() {
     setSettling(true)
@@ -177,6 +179,17 @@ export default function ConversationClient({
       body: JSON.stringify({ conversationId }),
     })
     router.refresh()
+  }
+
+  async function handleArchive() {
+    setArchiving(true)
+    const res = await fetch(`/api/conversation/${conversationId}/archive`, { method: 'PATCH' })
+    if (res.ok) {
+      router.push('/dashboard')
+    } else {
+      setArchiving(false)
+      setShowArchiveConfirm(false)
+    }
   }
 
   async function handleContinue() {
@@ -322,6 +335,41 @@ export default function ConversationClient({
           </div>
         )}
       </div>
+
+      {/* Archive */}
+      <div className="mt-8 text-center">
+        {!showArchiveConfirm ? (
+          <button
+            onClick={() => setShowArchiveConfirm(true)}
+            className="text-xs text-muted-fg/50 hover:text-muted-fg transition-colors duration-300"
+          >
+            Remove from journal
+          </button>
+        ) : (
+          <div className="border border-border/50 rounded-2xl p-4 space-y-3 text-left">
+            <p className="text-xs text-foreground/70 text-center">
+              This will move the conversation to your archive. You can restore it or delete it permanently from there.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleArchive}
+                disabled={archiving}
+                className="flex-1 h-9 bg-foreground/10 hover:bg-foreground/15 text-foreground/70 text-xs font-medium rounded-full disabled:opacity-50 transition-colors duration-300"
+              >
+                {archiving ? 'Archiving...' : 'Move to archive'}
+              </button>
+              <button
+                onClick={() => setShowArchiveConfirm(false)}
+                disabled={archiving}
+                className="flex-1 h-9 border border-border text-xs text-muted-fg hover:text-foreground rounded-full disabled:opacity-50 transition-colors duration-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
     </div>
   )
 }

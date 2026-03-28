@@ -100,6 +100,35 @@ export const enrichEntry = inngest.createFunction(
       .update({ processed: true })
       .eq('id', turnId)
 
+    // Settle the conversation and create an entries row (email conversations are one-shot — settle after processing)
+    const now = new Date().toISOString()
+
+    await supabase
+      .from('conversations')
+      .update({ status: 'settled', settled_at: now })
+      .eq('id', turn.conversation_id)
+      .eq('status', 'active')  // only settle if still active — don't overwrite wrap_offered/settled
+
+    const { data: existingEntry } = await supabase
+      .from('entries')
+      .select('id')
+      .eq('conversation_id', turn.conversation_id)
+      .maybeSingle()
+
+    if (!existingEntry) {
+      await supabase
+        .from('entries')
+        .insert({
+          conversation_id: turn.conversation_id,
+          user_id: turn.user_id,
+          status: 'settled',
+          origin: 'biographer',
+          era: extraction.era ?? null,
+          themes: extraction.themes ?? [],
+          settled_at: now,
+        })
+    }
+
     // First entry gets a dedicated follow-up that reads the actual entry and continues it directly.
     // All subsequent entries go through the standard scoring engine.
     if (updatedGraph.total_entries === 1) {

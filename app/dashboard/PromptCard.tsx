@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 type Props = {
@@ -11,7 +12,10 @@ type Props = {
 const SUPPRESS_MS = 5 * 60 * 1000 // 5 minutes
 
 export default function PromptCard({ promptId, question }: Props) {
+  const router = useRouter()
   const [visible, setVisible] = useState(false)
+  const [skipping, setSkipping] = useState(false)
+  const [skipped, setSkipped] = useState(false)
 
   useEffect(() => {
     const raw = sessionStorage.getItem('last_settled_at')
@@ -25,7 +29,26 @@ export default function PromptCard({ promptId, question }: Props) {
     setVisible(true)
   }, [])
 
+  async function handleSkip() {
+    setSkipping(true)
+    await fetch(`/api/prompt/${promptId}/skip`, { method: 'POST' })
+    setSkipped(true)
+    // Give Inngest a moment to generate the new prompt before refreshing
+    setTimeout(() => router.refresh(), 3500)
+  }
+
   if (!visible) return null
+
+  if (skipped) {
+    return (
+      <div
+        className="bg-card rounded-[2rem] border border-border/50 p-8 text-center"
+        style={{ boxShadow: '0 8px 32px -8px rgba(93, 112, 82, 0.10)' }}
+      >
+        <p className="font-display italic text-muted-fg text-base">Finding a better question for you...</p>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -38,13 +61,22 @@ export default function PromptCard({ promptId, question }: Props) {
       <p className="font-display italic text-foreground text-xl leading-relaxed">
         {question}
       </p>
-      <Link
-        href={`/dashboard/answer/${promptId}`}
-        className="inline-flex items-center h-12 px-8 bg-primary text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 transition-all duration-300"
-        style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.25)' }}
-      >
-        Answer
-      </Link>
+      <div className="flex items-center gap-4">
+        <Link
+          href={`/dashboard/answer/${promptId}`}
+          className="inline-flex items-center h-12 px-8 bg-primary text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 transition-all duration-300"
+          style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.25)' }}
+        >
+          Answer
+        </Link>
+        <button
+          onClick={handleSkip}
+          disabled={skipping}
+          className="text-sm text-muted-fg hover:text-foreground disabled:opacity-50 transition-colors duration-300"
+        >
+          {skipping ? 'Skipping...' : 'Not for me'}
+        </button>
+      </div>
     </div>
   )
 }
