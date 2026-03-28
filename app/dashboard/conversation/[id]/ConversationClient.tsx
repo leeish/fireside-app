@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 
 type Turn = {
   id: string
@@ -26,6 +27,7 @@ export default function ConversationClient({
   initialTurns,
   initialStatus,
 }: Props) {
+  const router = useRouter()
   const [turns, setTurns] = useState<Turn[]>(initialTurns)
   const [status, setStatus] = useState(initialStatus)
   const [mode, setMode] = useState<Mode>(null)
@@ -163,7 +165,6 @@ export default function ConversationClient({
     lastTurnCountRef.current = data.turns.length
   }
 
-  const isSettled = status === 'settled'
   const isWrapOffered = status === 'wrap_offered'
   const [settling, setSettling] = useState(false)
   const [continuing, setContinuing] = useState(false)
@@ -175,9 +176,7 @@ export default function ConversationClient({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ conversationId }),
     })
-    sessionStorage.setItem('last_settled_at', Date.now().toString())
-    setStatus('settled')
-    setSettling(false)
+    router.refresh()
   }
 
   async function handleContinue() {
@@ -221,11 +220,7 @@ export default function ConversationClient({
 
       {/* Input area */}
       <div className="border-t border-border/40 pt-8">
-        {isSettled ? (
-          <p className="text-sm text-muted-fg text-center py-4 font-display italic">
-            This conversation is complete. Your story has been captured.
-          </p>
-        ) : isWrapOffered && !waitingForAI ? (
+        {isWrapOffered && !waitingForAI ? (
           <div className="space-y-3">
             <div className="flex flex-col gap-2">
               <button

@@ -27,6 +27,7 @@ export default async function DashboardPage() {
       .from('conversations')
       .select('id, topic, status, opened_at, channel')
       .eq('user_id', user.id)
+      .neq('status', 'archived')
       .order('opened_at', { ascending: false })
       .limit(20),
     supabase
@@ -152,7 +153,10 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        <div className="mt-12 text-center">
+        <div className="mt-12 flex items-center justify-center gap-6">
+          <Link href="/dashboard/archive" className="text-xs text-muted-fg hover:text-foreground transition-colors duration-300">
+            Archive
+          </Link>
           <Link href="/dashboard/graph" className="text-xs text-border hover:text-muted-fg transition-colors duration-300">
             debug: view narrative graph
           </Link>

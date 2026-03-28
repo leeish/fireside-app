@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import ConversationClient from './ConversationClient'
+import SettledView from './SettledView'
 
 export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -21,6 +22,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
     .single()
 
   if (!conversation) redirect('/dashboard')
+  if (conversation.status === 'archived') redirect('/dashboard/archive')
 
   const { data: turns } = await service
     .from('turns')
@@ -44,6 +46,19 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
     month: 'long', day: 'numeric', year: 'numeric',
   })
 
+  const isSettled = conversation.status === 'settled'
+
+  // Fetch entry only when settled (needed for cleanup/story tabs)
+  let entry = null
+  if (isSettled) {
+    const { data } = await service
+      .from('entries')
+      .select('id, content, cleaned_content, story_content, story_intensity')
+      .eq('conversation_id', id)
+      .maybeSingle()
+    entry = data
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-4 py-10">
@@ -56,13 +71,22 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
           <h1 className="text-lg font-display font-semibold text-foreground leading-snug">{conversation.topic}</h1>
         </div>
 
-        <ConversationClient
-          conversationId={conversation.id}
-          topic={conversation.topic}
-          openedDate={openedDate}
-          initialTurns={decryptedTurns}
-          initialStatus={conversation.status}
-        />
+        {isSettled ? (
+          <SettledView
+            conversationId={conversation.id}
+            channel={conversation.channel}
+            turns={decryptedTurns}
+            entry={entry}
+          />
+        ) : (
+          <ConversationClient
+            conversationId={conversation.id}
+            topic={conversation.topic}
+            openedDate={openedDate}
+            initialTurns={decryptedTurns}
+            initialStatus={conversation.status}
+          />
+        )}
 
       </div>
     </div>
