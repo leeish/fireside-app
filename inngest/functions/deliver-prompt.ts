@@ -41,11 +41,14 @@ export const deliverPrompt = inngest.createFunction(
     // Load user
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, email, display_name, last_active_at')
+      .select('id, email, display_name, last_active_at, is_active')
       .eq('id', userId)
       .single()
 
     if (userError || !user) throw new Error(`User not found: ${userId}`)
+
+    // Skip if user has paused deliveries
+    if (!user.is_active) return { skipped: 'user has paused deliveries' }
 
     // Hold rule: if user was active in the last 6 hours, skip email this cycle
     if (user.last_active_at) {

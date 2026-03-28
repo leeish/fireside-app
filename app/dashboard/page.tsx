@@ -70,6 +70,7 @@ export default async function DashboardPage() {
           <h1 className="text-xl font-semibold text-stone-800">Fireside</h1>
           <div className="flex items-center gap-4">
             <p className="text-sm text-stone-400">{user.email}</p>
+            <Link href="/settings" className="text-sm text-stone-500 hover:text-stone-700">Settings</Link>
             <LogoutButton />
           </div>
         </div>

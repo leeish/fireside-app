@@ -36,9 +36,11 @@ export async function middleware(request: NextRequest) {
   const isWebhook = pathname.startsWith('/api/email/inbound')
   const isAuthApi = pathname.startsWith('/api/auth')
   const isOnboardingApi = pathname.startsWith('/api/onboarding')
+  const isSettingsApi = pathname.startsWith('/api/settings')
+  const isAccountApi = pathname.startsWith('/api/account')
 
   // Let public pages, callbacks, Inngest, inbound webhooks, and auth API through always
-  if (isCallback || isPublic || isInngest || isWebhook || isAuthApi || isOnboardingApi) return supabaseResponse
+  if (isCallback || isPublic || isInngest || isWebhook || isAuthApi || isOnboardingApi || isSettingsApi || isAccountApi) return supabaseResponse
 
   // Unauthenticated — only allow login
   if (!user && !isAuthRoute) {
