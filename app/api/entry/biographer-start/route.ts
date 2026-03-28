@@ -39,7 +39,7 @@ Feel like an invitation to share something real, not a form field or interview p
     .from('conversations')
     .insert({
       user_id: user.id,
-      topic: trimmedQuestion.slice(0, 120),
+      topic: trimmedQuestion,
       status: 'active',
       origin: 'user',
       channel: 'web',

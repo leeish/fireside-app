@@ -29,7 +29,7 @@ export default async function AnswerPage({ params }: { params: Promise<{ promptI
       .from('conversations')
       .select('id')
       .eq('user_id', user.id)
-      .eq('topic', qp.question.slice(0, 120))
+      .eq('topic', qp.question)
       .order('opened_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -42,7 +42,7 @@ export default async function AnswerPage({ params }: { params: Promise<{ promptI
     .from('conversations')
     .insert({
       user_id: user.id,
-      topic: qp.question.slice(0, 120),
+      topic: qp.question,
       status: 'active',
       origin: 'biographer',
       channel: 'app',

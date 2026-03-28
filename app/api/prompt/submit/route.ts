@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     .from('conversations')
     .insert({
       user_id: user.id,
-      topic: promptText.slice(0, 120),
+      topic: promptText,
       status: 'active',
       origin: 'biographer',
       channel: 'web',

@@ -64,7 +64,7 @@ export const deliverPrompt = inngest.createFunction(
       .from('conversations')
       .insert({
         user_id: userId,
-        topic: qp.question.slice(0, 120),
+        topic: qp.question,
         status: 'active',
         origin: 'biographer',
         channel: 'email',

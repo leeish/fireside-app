@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
 
   const service = createServiceClient()
 
-  const topicLabel = (topic?.trim() || responseText.trim().slice(0, 80)).slice(0, 120)
+  const topicLabel = topic?.trim() || responseText.trim().slice(0, 80)
 
   const { data: conversation, error: convError } = await service
     .from('conversations')
