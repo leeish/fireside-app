@@ -62,11 +62,8 @@ export const chatRespond = inngest.createFunction(
         : t.content,
     }))
 
-    // Use last 10 turns for context window
-    const recentTurns = decryptedTurns.slice(-10)
-
     // Build proper alternating messages array — 'biographer' turns become 'assistant'
-    const chatMessages: Array<{ role: 'user' | 'assistant'; content: string }> = recentTurns.map(t => ({
+    const chatMessages: Array<{ role: 'user' | 'assistant'; content: string }> = decryptedTurns.map(t => ({
       role: t.role === 'user' ? 'user' : 'assistant',
       content: t.content,
     }))
