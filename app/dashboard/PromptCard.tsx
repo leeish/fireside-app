@@ -29,18 +29,19 @@ export default function PromptCard({ promptId, question }: Props) {
 
   return (
     <div
-      className="bg-muted border border-primary/20 rounded-3xl p-7 space-y-5"
+      className="bg-card rounded-[2rem] border border-primary/20 p-8 space-y-5"
       style={{ boxShadow: '0 8px 32px -8px rgba(93, 112, 82, 0.15)' }}
     >
-      <p className="text-xs font-medium text-primary uppercase tracking-widest">
+      <p className="text-xs font-semibold text-primary uppercase tracking-widest">
         A question for you
       </p>
-      <p className="font-display italic text-foreground text-lg leading-relaxed">
+      <p className="font-display italic text-foreground text-xl leading-relaxed">
         {question}
       </p>
       <Link
         href={`/dashboard/answer/${promptId}`}
-        className="inline-block h-10 px-6 bg-primary hover:opacity-90 text-white text-sm font-medium rounded-full transition-all duration-300 leading-10"
+        className="inline-flex items-center h-12 px-8 bg-primary text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 transition-all duration-300"
+        style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.25)' }}
       >
         Answer
       </Link>

@@ -180,7 +180,7 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
             placeholder="Take your time. There's no wrong answer."
             rows={7}
             autoFocus
-            className="w-full px-4 py-3 bg-background border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none transition-all duration-300"
+            className="w-full px-5 py-4 bg-white/50 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none transition-all duration-300"
           />
           {isSpeechSupported && (
             <button
@@ -205,14 +205,15 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
           <button
             onClick={handleBegin}
             disabled={loading || !response.trim()}
-            className="w-full h-11 bg-primary hover:opacity-90 text-white text-sm font-medium rounded-full disabled:opacity-40 transition-all duration-300"
+            className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
+            style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
           >
             {loading ? 'Saving...' : 'Begin my story'}
           </button>
           <button
             onClick={handleFinishLater}
             disabled={loading}
-            className="w-full h-11 border border-border text-foreground/70 text-sm rounded-full hover:bg-muted transition-all duration-300 disabled:opacity-40"
+            className="w-full h-12 border-2 border-border text-foreground/70 text-sm font-medium rounded-full hover:border-primary/40 hover:bg-muted transition-all duration-300 disabled:opacity-40"
           >
             Finish later
           </button>
@@ -231,18 +232,18 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-xl font-display font-semibold text-foreground">Where would you like to begin, {userName}?</h2>
-        <p className="text-muted-fg text-sm mt-1">Choose the question that feels most right, right now.</p>
+        <h2 className="text-2xl font-display font-semibold text-foreground">Where would you like to begin, {userName}?</h2>
+        <p className="text-muted-fg text-sm mt-2">Choose the question that feels most right, right now.</p>
       </div>
       <div className="space-y-3">
         {PROMPTS.map((prompt) => (
           <button
             key={prompt.category}
             onClick={() => { setSelected(prompt); setStage('answer') }}
-            className="w-full text-left p-5 bg-background border border-border rounded-2xl hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 group"
+            className="w-full text-left p-6 bg-background border border-border/60 rounded-2xl hover:border-primary/40 hover:-translate-y-1 transition-all duration-300 group"
             style={{ boxShadow: '0 2px 12px -4px rgba(93, 112, 82, 0.08)' }}
           >
-            <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">{prompt.teaser}</p>
+            <p className="text-xs font-semibold text-secondary uppercase tracking-widest mb-2">{prompt.teaser}</p>
             <p className="font-display italic text-foreground/80 text-sm leading-relaxed group-hover:text-foreground transition-colors duration-300">{prompt.text}</p>
           </button>
         ))}

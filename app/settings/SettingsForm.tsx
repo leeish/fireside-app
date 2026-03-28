@@ -70,43 +70,49 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
 
       {/* Account */}
-      <section className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 space-y-4">
-        <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wide">Account</h2>
+      <section
+        className="bg-card rounded-[2rem] border border-border/50 p-7 space-y-5"
+        style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
+      >
+        <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Account</h2>
         <div>
-          <label className="block text-sm font-medium text-stone-700 mb-1">Display name</label>
+          <label className="block text-sm font-medium text-foreground mb-2">Display name</label>
           <input
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="w-full h-12 px-5 bg-white/50 border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-stone-700 mb-1">Email</label>
+          <label className="block text-sm font-medium text-foreground mb-2">Email</label>
           <input
             type="email"
             value={email}
             disabled
-            className="w-full px-3 py-2 border border-stone-200 rounded-lg text-sm bg-stone-50 text-stone-400"
+            className="w-full h-12 px-5 border border-border rounded-full text-sm bg-muted text-muted-fg cursor-not-allowed"
           />
         </div>
       </section>
 
       {/* Delivery */}
-      <section className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 space-y-4">
-        <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wide">Delivery</h2>
+      <section
+        className="bg-card rounded-[2rem] border border-border/50 p-7 space-y-4"
+        style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
+      >
+        <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Delivery</h2>
 
         <div className="space-y-2">
           {CADENCE_OPTIONS.map(opt => (
             <label
               key={opt.value}
-              className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+              className={`flex items-center justify-between p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${
                 selectedCadence === opt.value
-                  ? 'border-amber-500 bg-amber-50'
-                  : 'border-stone-200 hover:border-stone-300'
+                  ? 'border-primary/40 bg-primary/5'
+                  : 'border-border/60 hover:border-primary/30'
               }`}
             >
               <div className="flex items-center gap-3">
@@ -116,15 +122,15 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
                   value={opt.value}
                   checked={selectedCadence === opt.value}
                   onChange={() => setSelectedCadence(opt.value)}
-                  className="accent-amber-600"
+                  className="accent-primary"
                 />
                 <div>
-                  <span className="text-sm font-medium text-stone-800">{opt.label}</span>
-                  <p className="text-xs text-stone-500">{opt.description}</p>
+                  <span className="text-sm font-medium text-foreground">{opt.label}</span>
+                  <p className="text-xs text-muted-fg">{opt.description}</p>
                 </div>
               </div>
               {opt.premium && (
-                <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                <span className="text-xs font-semibold text-secondary bg-secondary/10 px-3 py-1 rounded-full">
                   Beta
                 </span>
               )}
@@ -132,20 +138,20 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
           ))}
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-stone-100">
+        <div className="flex items-center justify-between pt-4 border-t border-border/40">
           <div>
-            <p className="text-sm font-medium text-stone-800">Pause deliveries</p>
-            <p className="text-xs text-stone-500">No prompts will be sent while paused</p>
+            <p className="text-sm font-medium text-foreground">Pause deliveries</p>
+            <p className="text-xs text-muted-fg mt-0.5">No prompts will be sent while paused</p>
           </div>
           <button
             type="button"
             onClick={() => setActive(a => !a)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              !active ? 'bg-amber-600' : 'bg-stone-300'
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
+              !active ? 'bg-primary' : 'bg-border'
             }`}
           >
             <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-300 ${
                 !active ? 'translate-x-6' : 'translate-x-1'
               }`}
             />
@@ -154,68 +160,75 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
       </section>
 
       {/* Subscription */}
-      <section className="bg-white rounded-2xl border border-stone-200 shadow-sm p-6 space-y-3">
-        <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wide">Subscription</h2>
-        <div className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50">
+      <section
+        className="bg-card rounded-[2rem] border border-border/50 p-7 space-y-3"
+        style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
+      >
+        <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Subscription</h2>
+        <div className="flex items-center justify-between p-4 rounded-2xl border border-primary/30 bg-primary/5">
           <div>
-            <p className="text-sm font-medium text-stone-800">Free</p>
-            <p className="text-xs text-stone-500">Beta access — all features included</p>
+            <p className="text-sm font-medium text-foreground">Free</p>
+            <p className="text-xs text-muted-fg">Beta access — all features included</p>
           </div>
-          <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">Current plan</span>
+          <span className="text-xs font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">Current plan</span>
         </div>
-        <div className="flex items-center justify-between p-3 rounded-lg border border-stone-200 opacity-50 cursor-not-allowed">
+        <div className="flex items-center justify-between p-4 rounded-2xl border border-border/40 opacity-50 cursor-not-allowed">
           <div>
-            <p className="text-sm font-medium text-stone-800">Premium</p>
-            <p className="text-xs text-stone-500">Additional features and priority support</p>
+            <p className="text-sm font-medium text-foreground">Premium</p>
+            <p className="text-xs text-muted-fg">Additional features and priority support</p>
           </div>
-          <span className="text-xs font-medium text-stone-500 bg-stone-100 px-2 py-0.5 rounded-full">Coming soon</span>
+          <span className="text-xs font-medium text-muted-fg bg-muted px-3 py-1 rounded-full">Coming soon</span>
         </div>
       </section>
 
       {/* Save */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <button
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+          className="h-12 px-8 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all duration-300"
+          style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
         >
           {saving ? 'Saving...' : 'Save changes'}
         </button>
-        {saved && <p className="text-sm text-green-600">Saved</p>}
+        {saved && <p className="text-sm text-primary font-medium">Saved</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
 
       {/* Danger zone */}
-      <section className="bg-white rounded-2xl border border-red-100 shadow-sm p-6 space-y-3">
-        <h2 className="text-sm font-semibold text-red-500 uppercase tracking-wide">Danger zone</h2>
-        <p className="text-sm text-stone-500">
+      <section
+        className="bg-card rounded-[2rem] border border-red-200/60 p-7 space-y-4"
+        style={{ boxShadow: '0 4px 20px -4px rgba(168, 84, 72, 0.08)' }}
+      >
+        <h2 className="text-xs font-semibold text-red-400 uppercase tracking-widest">Danger zone</h2>
+        <p className="text-sm text-muted-fg">
           Permanently delete your account and all your story data. This cannot be undone.
         </p>
         {!showDeleteConfirm ? (
           <button
             type="button"
             onClick={() => setShowDeleteConfirm(true)}
-            className="px-4 py-2 border border-red-300 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
+            className="h-10 px-6 border-2 border-red-300 text-red-500 text-sm font-medium rounded-full hover:bg-red-50 transition-all duration-300"
           >
             Delete my account
           </button>
         ) : (
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-stone-800">Are you sure? All your entries and story data will be gone forever.</p>
+          <div className="space-y-4">
+            <p className="text-sm font-medium text-foreground">Are you sure? All your entries and story data will be gone forever.</p>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={handleDelete}
                 disabled={deleting}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+                className="h-10 px-6 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all duration-300"
               >
                 {deleting ? 'Deleting...' : 'Yes, delete everything'}
               </button>
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 border border-stone-300 text-stone-700 text-sm font-medium rounded-lg hover:bg-stone-50 transition-colors"
+                className="h-10 px-6 border-2 border-border text-foreground/70 text-sm font-medium rounded-full hover:bg-muted transition-all duration-300"
               >
                 Cancel
               </button>

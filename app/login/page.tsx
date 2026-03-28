@@ -80,14 +80,15 @@ export default function LoginPage() {
               placeholder="you@example.com"
               required
               autoFocus
-              className="w-full h-12 px-4 bg-background border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
+              className="w-full h-12 px-5 bg-white/50 border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
             />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-12 bg-primary hover:opacity-90 text-white text-sm font-medium rounded-full disabled:opacity-50 transition-all duration-300"
+            className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all duration-300"
+            style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
           >
             {loading ? 'Sending link...' : 'Send sign-in link'}
           </button>

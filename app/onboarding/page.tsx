@@ -88,7 +88,7 @@ export default function OnboardingPage() {
                   onKeyDown={e => { if (e.key === 'Enter' && canAdvance()) setStep(1) }}
                   placeholder="First name"
                   autoFocus
-                  className="w-full h-12 px-4 bg-background border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
+                  className="w-full h-12 px-5 bg-white/50 border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
                 />
               </div>
             </div>
@@ -125,7 +125,7 @@ export default function OnboardingPage() {
               <button
                 type="button"
                 onClick={() => setStep(s => s - 1)}
-                className="flex-1 h-11 border border-border text-foreground/80 text-sm font-medium rounded-full hover:bg-muted transition-all duration-300"
+                className="flex-1 h-12 border-2 border-border text-foreground/80 text-sm font-medium rounded-full hover:border-primary/40 hover:bg-muted transition-all duration-300"
               >
                 Back
               </button>
@@ -135,7 +135,7 @@ export default function OnboardingPage() {
                 type="button"
                 onClick={() => setStep(s => s + 1)}
                 disabled={!canAdvance()}
-                className="flex-1 h-11 bg-primary hover:opacity-90 text-white text-sm font-medium rounded-full disabled:opacity-40 transition-all duration-300"
+                className="flex-1 h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
               >
                 Continue
               </button>

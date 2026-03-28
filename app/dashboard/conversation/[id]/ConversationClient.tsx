@@ -48,12 +48,10 @@ export default function ConversationClient({
     return () => recognitionRef.current?.stop()
   }, [])
 
-  // Scroll to bottom when turns change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [turns])
 
-  // Poll for new turns while waiting for AI
   useEffect(() => {
     if (!waitingForAI) {
       if (pollRef.current) clearInterval(pollRef.current)
@@ -127,7 +125,6 @@ export default function ConversationClient({
       return
     }
 
-    // Optimistically append user turn
     const optimistic: Turn = {
       id: `temp-${Date.now()}`,
       role: 'user',
@@ -161,7 +158,6 @@ export default function ConversationClient({
     setResponse('')
     setLoading(false)
     setMode(null)
-    // Refresh turns
     const data = await fetch(`/api/conversation/${conversationId}/turns`).then(r => r.json())
     setTurns(data.turns)
     lastTurnCountRef.current = data.turns.length
@@ -199,15 +195,15 @@ export default function ConversationClient({
   return (
     <div>
       {/* Turns */}
-      <div className="space-y-6 mb-10">
+      <div className="space-y-7 mb-10">
         {turns.map(turn => (
-          <div key={turn.id} className={turn.role === 'biographer' ? '' : 'pl-4 border-l-2 border-amber-200'}>
+          <div key={turn.id} className={turn.role === 'biographer' ? '' : 'pl-5 border-l-2 border-primary/25'}>
             {turn.role === 'biographer' ? (
-              <p className="text-sm font-medium text-stone-500 leading-relaxed italic">
+              <p className="font-display italic text-foreground/70 text-base leading-relaxed">
                 {turn.content}
               </p>
             ) : (
-              <p className="text-sm text-stone-800 leading-relaxed whitespace-pre-wrap">
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                 {turn.content}
               </p>
             )}
@@ -216,7 +212,7 @@ export default function ConversationClient({
 
         {waitingForAI && (
           <div>
-            <p className="text-sm text-stone-400 italic animate-pulse">Thinking...</p>
+            <p className="font-display italic text-muted-fg text-sm animate-pulse">Thinking...</p>
           </div>
         )}
 
@@ -224,60 +220,59 @@ export default function ConversationClient({
       </div>
 
       {/* Input area */}
-      <div className="border-t border-stone-200 pt-8">
+      <div className="border-t border-border/40 pt-8">
         {isSettled ? (
-          <p className="text-sm text-stone-400 text-center py-4">
+          <p className="text-sm text-muted-fg text-center py-4 font-display italic">
             This conversation is complete. Your story has been captured.
           </p>
         ) : isWrapOffered && !waitingForAI ? (
-          // Wrap offer — user decides whether to close or keep going
           <div className="space-y-3">
             <div className="flex flex-col gap-2">
               <button
                 onClick={handleSettle}
                 disabled={settling || continuing}
-                className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 transition-colors"
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all duration-300"
+                style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
               >
                 {settling ? 'Capturing...' : 'Capture it'}
               </button>
               <button
                 onClick={handleContinue}
                 disabled={settling || continuing}
-                className="w-full py-2.5 border border-stone-300 text-stone-600 text-sm font-medium rounded-lg hover:bg-stone-50 disabled:opacity-50 transition-colors"
+                className="w-full h-12 border-2 border-border text-foreground/70 text-sm font-medium rounded-full hover:border-primary/40 hover:bg-muted disabled:opacity-50 transition-all duration-300"
               >
                 {continuing ? 'Continuing...' : 'Keep going'}
               </button>
             </div>
           </div>
         ) : mode === null && !isWrapOffered ? (
-          // Mode selection
           <div className="space-y-3">
-            <p className="text-xs font-medium text-stone-400 uppercase tracking-wide">How do you want to continue?</p>
+            <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">How do you want to continue?</p>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => setMode('interview')}
-                className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 transition-all duration-300"
+                style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
               >
                 Talk it through with the biographer
               </button>
               <button
                 onClick={() => setMode('add-more')}
-                className="w-full py-2.5 border border-stone-300 text-stone-600 text-sm font-medium rounded-lg hover:bg-stone-50 transition-colors"
+                className="w-full h-12 border-2 border-border text-foreground/70 text-sm font-medium rounded-full hover:border-primary/40 hover:bg-muted transition-all duration-300"
               >
                 Just add more
               </button>
             </div>
           </div>
         ) : (
-          // Input form — same UI for both modes
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-stone-400 uppercase tracking-wide">
+              <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">
                 {mode === 'interview' ? 'Your response' : 'Add more'}
               </p>
               <button
                 onClick={() => { setMode(null); setResponse('') }}
-                className="text-xs text-stone-400 hover:text-stone-600"
+                className="text-xs text-muted-fg hover:text-foreground transition-colors duration-300"
               >
                 Cancel
               </button>
@@ -297,17 +292,17 @@ export default function ConversationClient({
                 }
                 rows={5}
                 disabled={waitingForAI}
-                className="w-full px-4 py-3 border border-stone-300 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none disabled:opacity-50"
+                className="w-full px-5 py-4 bg-white/50 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none disabled:opacity-50 transition-all duration-300"
               />
               {isSpeechSupported && !waitingForAI && (
                 <button
                   type="button"
                   onClick={toggleRecording}
                   title={isRecording ? 'Stop recording' : 'Speak your answer'}
-                  className={`absolute bottom-3 right-3 p-1.5 rounded-full transition-colors ${
+                  className={`absolute bottom-3 right-3 p-1.5 rounded-full transition-all duration-300 ${
                     isRecording
                       ? 'text-red-500 bg-red-50 hover:bg-red-100 animate-pulse'
-                      : 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'
+                      : 'text-muted-fg hover:text-foreground hover:bg-muted'
                   }`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
@@ -321,12 +316,13 @@ export default function ConversationClient({
             <button
               onClick={mode === 'interview' ? handleInterviewSubmit : handleAddMoreSubmit}
               disabled={loading || waitingForAI || !response.trim()}
-              className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
+              style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
             >
               {loading || waitingForAI ? 'Saving...' : mode === 'interview' ? 'Send' : 'Add to story'}
             </button>
             {mode === 'interview' && (
-              <p className="text-xs text-stone-400 text-center">Cmd+Enter to send</p>
+              <p className="text-xs text-muted-fg text-center">Cmd+Enter to send</p>
             )}
           </div>
         )}

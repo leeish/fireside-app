@@ -79,31 +79,31 @@ export default function AppendForm({ conversationId }: { conversationId: string 
   if (saved) {
     return (
       <div className="text-center py-6">
-        <p className="text-stone-500 text-sm">Added to your story.</p>
+        <p className="font-display italic text-muted-fg text-sm">Added to your story.</p>
       </div>
     )
   }
 
   return (
     <div className="space-y-3">
-      <p className="text-xs font-medium text-stone-400 uppercase tracking-wide">Add more</p>
+      <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Add more</p>
       <div className="relative">
         <textarea
           value={response}
           onChange={e => setResponse(e.target.value)}
           placeholder="Continue the thought, add a detail, or take it somewhere new."
           rows={5}
-          className="w-full px-4 py-3 border border-stone-300 rounded-xl text-sm text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+          className="w-full px-5 py-4 bg-white/50 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none transition-all duration-300"
         />
         {isSpeechSupported && (
           <button
             type="button"
             onClick={toggleRecording}
             title={isRecording ? 'Stop recording' : 'Speak your answer'}
-            className={`absolute bottom-3 right-3 p-1.5 rounded-full transition-colors ${
+            className={`absolute bottom-3 right-3 p-1.5 rounded-full transition-all duration-300 ${
               isRecording
                 ? 'text-red-500 bg-red-50 hover:bg-red-100 animate-pulse'
-                : 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'
+                : 'text-muted-fg hover:text-foreground hover:bg-muted'
             }`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
@@ -117,7 +117,8 @@ export default function AppendForm({ conversationId }: { conversationId: string 
       <button
         onClick={handleSubmit}
         disabled={loading || !response.trim()}
-        className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg disabled:opacity-40 transition-colors"
+        className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
+        style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
       >
         {loading ? 'Saving...' : 'Add to story'}
       </button>

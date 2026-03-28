@@ -60,28 +60,32 @@ export default async function DashboardPage() {
   const hasConversations = conversations && conversations.length > 0
   const isProcessing = !!unprocessedTurn && !queuedPrompt
 
-  // Find the conversation that matches the queued prompt — most recent active one
-  const activeConversation = conversations?.find(c => c.status === 'active')
-
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-10">
 
-        <div className="flex items-center justify-between mb-10">
-          <h1 className="text-2xl font-display font-semibold text-foreground tracking-tight">
+      {/* Floating pill nav */}
+      <div className="sticky top-4 z-40 px-4">
+        <div
+          className="max-w-2xl mx-auto flex items-center justify-between px-6 py-3 rounded-full border border-border/60 bg-white/70 backdrop-blur-md"
+          style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.12)' }}
+        >
+          <h1 className="text-xl font-display font-semibold text-foreground tracking-tight">
             Fire<em>side</em>
           </h1>
-          <div className="flex items-center gap-4">
-            <p className="text-sm text-muted-fg hidden sm:block">{user.email}</p>
+          <div className="flex items-center gap-5">
+            <p className="text-xs text-muted-fg hidden sm:block">{user.email}</p>
             <Link href="/settings" className="text-sm text-muted-fg hover:text-foreground transition-colors duration-300">Settings</Link>
             <LogoutButton />
           </div>
         </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 pt-8 pb-16">
 
         {/* New user */}
         {!hasConversations && (
           <div
-            className="bg-card rounded-3xl border border-border p-8"
+            className="bg-card rounded-[2rem] border border-border/50 p-8"
             style={{ boxShadow: '0 10px 40px -10px rgba(93, 112, 82, 0.12)' }}
           >
             <FirstPromptPicker userName={userName} />
@@ -104,7 +108,7 @@ export default async function DashboardPage() {
             {/* Pipeline still running */}
             {isProcessing && (
               <div
-                className="bg-card border border-border rounded-3xl p-5 text-center"
+                className="bg-card border border-border/50 rounded-[2rem] p-6 text-center"
                 style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
               >
                 <p className="text-muted-fg text-sm italic font-display">Reading your response and crafting your next question...</p>
@@ -129,7 +133,7 @@ export default async function DashboardPage() {
                   <Link
                     key={conv.id}
                     href={`/dashboard/conversation/${conv.id}`}
-                    className="block bg-card border border-border rounded-2xl px-5 py-4 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 group"
+                    className="block bg-card border border-border/50 rounded-2xl px-5 py-4 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300 group"
                     style={{ boxShadow: '0 2px 12px -4px rgba(93, 112, 82, 0.08)' }}
                   >
                     <div className="flex items-center justify-between gap-4">
