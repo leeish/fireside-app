@@ -16,6 +16,7 @@ export default function PromptCard({ promptId, question }: Props) {
   const [visible, setVisible] = useState(false)
   const [skipping, setSkipping] = useState(false)
   const [skipped, setSkipped] = useState(false)
+  const [gaveUp, setGaveUp] = useState(false)
 
   useEffect(() => {
     const raw = sessionStorage.getItem('last_settled_at')
@@ -33,8 +34,30 @@ export default function PromptCard({ promptId, question }: Props) {
     setSkipping(true)
     await fetch(`/api/prompt/${promptId}/skip`, { method: 'POST' })
     setSkipped(true)
-    // Give Inngest a moment to generate the new prompt before refreshing
-    setTimeout(() => router.refresh(), 3500)
+
+    const startedAt = Date.now()
+    const POLL_INTERVAL = 4000
+    const TIMEOUT = 60000
+
+    const poll = async () => {
+      if (Date.now() - startedAt >= TIMEOUT) {
+        setGaveUp(true)
+        return
+      }
+      try {
+        const res = await fetch('/api/prompt/pending')
+        const data = await res.json()
+        if (data.found) {
+          router.refresh()
+          return
+        }
+      } catch {
+        // silent — retry next interval
+      }
+      setTimeout(poll, POLL_INTERVAL)
+    }
+
+    setTimeout(poll, POLL_INTERVAL)
   }
 
   if (!visible) return null
@@ -42,10 +65,17 @@ export default function PromptCard({ promptId, question }: Props) {
   if (skipped) {
     return (
       <div
-        className="bg-card rounded-[2rem] border border-border/50 p-8 text-center"
+        className="bg-card rounded-[2rem] border border-border/50 p-8 text-center space-y-2"
         style={{ boxShadow: '0 8px 32px -8px rgba(93, 112, 82, 0.10)' }}
       >
-        <p className="font-display italic text-muted-fg text-base">Finding a better question for you...</p>
+        {gaveUp ? (
+          <>
+            <p className="font-display italic text-muted-fg text-base">Your next question is on its way.</p>
+            <p className="text-xs text-muted-fg">Check back in a few minutes.</p>
+          </>
+        ) : (
+          <p className="font-display italic text-muted-fg text-base">Finding a better question for you...</p>
+        )}
       </div>
     )
   }
