@@ -38,9 +38,10 @@ export async function middleware(request: NextRequest) {
   const isOnboardingApi = pathname.startsWith('/api/onboarding')
   const isSettingsApi = pathname.startsWith('/api/settings')
   const isAccountApi = pathname.startsWith('/api/account')
+  const isConversationApi = pathname.startsWith('/api/conversation')
 
   // Let public pages, callbacks, Inngest, inbound webhooks, and auth API through always
-  if (isCallback || isPublic || isInngest || isWebhook || isAuthApi || isOnboardingApi || isSettingsApi || isAccountApi) return supabaseResponse
+  if (isCallback || isPublic || isInngest || isWebhook || isAuthApi || isOnboardingApi || isSettingsApi || isAccountApi || isConversationApi) return supabaseResponse
 
   // Unauthenticated — only allow login
   if (!user && !isAuthRoute) {
