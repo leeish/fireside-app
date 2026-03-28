@@ -111,14 +111,12 @@ export default async function DashboardPage() {
                 <p className="text-stone-800 text-base leading-relaxed font-medium">
                   {queuedPrompt.question}
                 </p>
-                {activeConversation && (
-                  <Link
-                    href={`/dashboard/conversation/${activeConversation.id}`}
-                    className="inline-block py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
-                  >
-                    Answer
-                  </Link>
-                )}
+                <Link
+                  href={`/dashboard/answer/${queuedPrompt.id}`}
+                  className="inline-block py-2 px-4 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  Answer
+                </Link>
               </div>
             )}
 
