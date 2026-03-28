@@ -68,7 +68,9 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
             &larr; Back
           </Link>
           <p className="text-xs text-muted-fg mb-1">{openedDate}</p>
-          <h1 className="text-lg font-display font-semibold text-foreground leading-snug">{conversation.topic}</h1>
+          {!isSettled && (
+            <h1 className="text-lg font-display font-semibold text-foreground leading-snug">{conversation.topic}</h1>
+          )}
         </div>
 
         {isSettled ? (
@@ -77,6 +79,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
             channel={conversation.channel}
             turns={decryptedTurns}
             entry={entry}
+            topic={conversation.topic}
           />
         ) : (
           <ConversationClient

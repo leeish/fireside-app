@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import CleanupTab from './CleanupTab'
 import StoryTab from './StoryTab'
@@ -28,16 +28,54 @@ export default function SettledView({
   channel,
   turns,
   entry,
+  topic,
 }: {
   conversationId: string
   channel: string
   turns: Turn[]
   entry: Entry
+  topic: string
 }) {
   const router = useRouter()
-  const [tab, setTab] = useState<Tab>('transcript')
+
+  const defaultTab: Tab = entry?.story_content ? 'story' : entry?.cleaned_content ? 'cleanup' : 'transcript'
+  const [tab, setTab] = useState<Tab>(defaultTab)
+
+  const [title, setTitle] = useState(topic)
+  const [generatingTitle, setGeneratingTitle] = useState(false)
+  const titleRef = useRef<HTMLHeadingElement>(null)
+
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false)
   const [archiving, setArchiving] = useState(false)
+
+  // Auto-generate title if topic still looks like a question
+  useEffect(() => {
+    if (topic.includes('?')) {
+      generateTitle()
+    }
+  }, [])
+
+  async function generateTitle() {
+    setGeneratingTitle(true)
+    const res = await fetch(`/api/conversation/${conversationId}/title`, { method: 'POST' })
+    if (res.ok) {
+      const data = await res.json()
+      setTitle(data.title)
+      if (titleRef.current) titleRef.current.innerText = data.title
+    }
+    setGeneratingTitle(false)
+  }
+
+  async function handleTitleBlur() {
+    const newTitle = titleRef.current?.innerText.trim() ?? ''
+    if (!newTitle || newTitle === title) return
+    setTitle(newTitle)
+    await fetch(`/api/conversation/${conversationId}/title`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newTitle }),
+    })
+  }
 
   async function handleArchive() {
     setArchiving(true)
@@ -52,6 +90,24 @@ export default function SettledView({
 
   return (
     <div>
+      {/* Editable title */}
+      <div className="mb-8">
+        {generatingTitle ? (
+          <p className="text-lg font-display font-semibold text-muted-fg animate-pulse">Generating title...</p>
+        ) : (
+          <h1
+            ref={titleRef}
+            contentEditable
+            suppressContentEditableWarning
+            onBlur={handleTitleBlur}
+            className="text-lg font-display font-semibold text-foreground leading-snug focus:outline-none cursor-text"
+            style={{ caretColor: 'var(--color-primary)' }}
+          >
+            {title}
+          </h1>
+        )}
+      </div>
+
       {/* Tab bar */}
       <div className="flex gap-1 border-b border-border/40 mb-8">
         {TABS.map(t => (
