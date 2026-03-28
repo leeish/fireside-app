@@ -4,10 +4,19 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+type Mode = 'free' | 'biographer'
+
 export default function NewEntryPage() {
   const router = useRouter()
-  const [topic, setTopic] = useState('')
-  const [response, setResponse] = useState('')
+  const [mode, setMode] = useState<Mode>('free')
+
+  // Free entry state
+  const [freeText, setFreeText] = useState('')
+  const [freeTopic, setFreeTopic] = useState('')
+
+  // Biographer state
+  const [biographerTopic, setBiographerTopic] = useState('')
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [isRecording, setIsRecording] = useState(false)
@@ -35,7 +44,7 @@ export default function NewEntryPage() {
         .slice(e.resultIndex)
         .map((r: any) => r[0].transcript)
         .join(' ')
-      setResponse(prev => prev ? prev + ' ' + transcript : transcript)
+      setFreeText(prev => prev ? prev + ' ' + transcript : transcript)
     }
     recognition.onerror = () => setIsRecording(false)
     recognition.onend = () => setIsRecording(false)
@@ -44,26 +53,40 @@ export default function NewEntryPage() {
     setIsRecording(true)
   }
 
-  async function handleSubmit() {
-    if (!response.trim()) return
+  async function handleFreeSubmit() {
+    if (!freeText.trim()) return
     setLoading(true)
     setError('')
-
-    const promptText = topic.trim() || 'A moment worth remembering'
-
-    const res = await fetch('/api/prompt/submit', {
+    const res = await fetch('/api/entry/free', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ promptText, responseText: response }),
+      body: JSON.stringify({ responseText: freeText, topic: freeTopic }),
     })
-
     if (!res.ok) {
       setError('Something went wrong. Please try again.')
       setLoading(false)
       return
     }
+    const data = await res.json()
+    router.push(`/dashboard/conversation/${data.conversationId}`)
+  }
 
-    router.push('/dashboard')
+  async function handleBiographerSubmit() {
+    if (!biographerTopic.trim()) return
+    setLoading(true)
+    setError('')
+    const res = await fetch('/api/entry/biographer-start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic: biographerTopic }),
+    })
+    if (!res.ok) {
+      setError('Something went wrong. Please try again.')
+      setLoading(false)
+      return
+    }
+    const data = await res.json()
+    router.push(`/dashboard/conversation/${data.conversationId}`)
   }
 
   return (
@@ -75,33 +98,56 @@ export default function NewEntryPage() {
             &larr; Back
           </Link>
           <h1 className="text-2xl font-display font-semibold text-foreground">Something on your mind?</h1>
-          <p className="text-sm text-muted-fg mt-1">Write about whatever's with you today. The biographer will follow your lead, if you need it.</p>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="text-xs font-semibold text-muted-fg uppercase tracking-widest block mb-2">
-              What's this about? <span className="font-normal normal-case tracking-normal opacity-60">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={topic}
-              onChange={e => setTopic(e.target.value)}
-              placeholder="e.g. My grandmother's kitchen, The summer of '94, My dad…"
-              className="w-full px-5 py-3 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all duration-300"
-              style={{ backgroundColor: 'var(--fs-surface)' }}
-            />
-          </div>
+        {/* Mode toggle */}
+        <div className="flex gap-2 mb-8">
+          <button
+            onClick={() => setMode('free')}
+            className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+              mode === 'free'
+                ? 'bg-primary text-white'
+                : 'border border-border text-muted-fg hover:text-foreground hover:border-primary/40'
+            }`}
+          >
+            Write freely
+          </button>
+          <button
+            onClick={() => setMode('biographer')}
+            className={`px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${
+              mode === 'biographer'
+                ? 'bg-primary text-white'
+                : 'border border-border text-muted-fg hover:text-foreground hover:border-primary/40'
+            }`}
+          >
+            Talk with the biographer
+          </button>
+        </div>
 
-          <div>
-            <label className="text-xs font-semibold text-muted-fg uppercase tracking-widest block mb-2">
-              Your entry
-            </label>
+        {/* Free entry */}
+        {mode === 'free' && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-fg">Write about whatever's with you today. The biographer will follow your lead, if you need it.</p>
+
+            <div>
+              <label className="text-xs font-semibold text-muted-fg uppercase tracking-widest block mb-2">
+                What's this about? <span className="font-normal normal-case tracking-normal opacity-60">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={freeTopic}
+                onChange={e => setFreeTopic(e.target.value)}
+                placeholder="e.g. My grandmother, The summer of '94…"
+                className="w-full px-5 py-3 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 transition-all duration-300"
+                style={{ backgroundColor: 'var(--fs-surface)' }}
+              />
+            </div>
+
             <div className="relative">
               <textarea
-                value={response}
-                onChange={e => setResponse(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSubmit() }}
+                value={freeText}
+                onChange={e => setFreeText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleFreeSubmit() }}
                 placeholder="Just start. It doesn't have to be perfect."
                 rows={10}
                 autoFocus
@@ -126,20 +172,55 @@ export default function NewEntryPage() {
                 </button>
               )}
             </div>
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <button
+              onClick={handleFreeSubmit}
+              disabled={loading || !freeText.trim()}
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
+              style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
+            >
+              {loading ? 'Saving...' : 'Add to my story'}
+            </button>
+            <p className="text-xs text-muted-fg text-center">Cmd+Enter to submit</p>
           </div>
+        )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+        {/* Biographer-guided */}
+        {mode === 'biographer' && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-fg">Tell the biographer what you want to explore and they'll open the conversation with a question.</p>
 
-          <button
-            onClick={handleSubmit}
-            disabled={loading || !response.trim()}
-            className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
-            style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
-          >
-            {loading ? 'Saving...' : 'Add to my story'}
-          </button>
-          <p className="text-xs text-muted-fg text-center">Cmd+Enter to submit</p>
-        </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-fg uppercase tracking-widest block mb-2">
+                What do you want to talk about?
+              </label>
+              <textarea
+                value={biographerTopic}
+                onChange={e => setBiographerTopic(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleBiographerSubmit() }}
+                placeholder="e.g. My relationship with my dad, The year I changed careers, Living abroad in my 20s…"
+                rows={4}
+                autoFocus
+                className="w-full px-5 py-4 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none transition-all duration-300"
+                style={{ backgroundColor: 'var(--fs-surface)' }}
+              />
+            </div>
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+
+            <button
+              onClick={handleBiographerSubmit}
+              disabled={loading || !biographerTopic.trim()}
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
+              style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
+            >
+              {loading ? 'Getting your question ready...' : 'Start the conversation'}
+            </button>
+            <p className="text-xs text-muted-fg text-center">Cmd+Enter to submit</p>
+          </div>
+        )}
 
       </div>
     </div>

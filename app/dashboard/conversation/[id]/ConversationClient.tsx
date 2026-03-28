@@ -206,9 +206,9 @@ export default function ConversationClient({
 
   return (
     <div>
-      {/* Turns — skip first biographer turn, it's already shown as the H1 above */}
+      {/* Turns — skip first biographer turn if present, it's already shown as the H1 above */}
       <div className="space-y-7 mb-10">
-        {turns.slice(1).map(turn => (
+        {(turns[0]?.role === 'biographer' ? turns.slice(1) : turns).map(turn => (
           <div key={turn.id} className={turn.role === 'biographer' ? '' : 'pl-5 border-l-2 border-primary/25'}>
             {turn.role === 'biographer' ? (
               <p className="font-display italic text-foreground/70 text-base leading-relaxed">
