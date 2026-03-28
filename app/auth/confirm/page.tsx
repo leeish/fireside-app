@@ -13,14 +13,16 @@ export default function ConfirmPage() {
   useEffect(() => {
     const supabase = createClient()
 
-    // getSession() causes the Supabase client to parse the fragment and establish the session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+    // Listen for the auth state change — the client parses the fragment and fires this
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
         router.replace('/dashboard')
-      } else {
+      } else if (event === 'SIGNED_OUT' || !session) {
         router.replace('/login?error=auth')
       }
     })
+
+    return () => subscription.unsubscribe()
   }, [router])
 
   return (
