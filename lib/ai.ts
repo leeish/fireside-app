@@ -39,14 +39,15 @@ export async function claudeComplete({
     max_tokens: maxTokens,
     temperature,
     system,
-    messages: [
-      { role: 'user', content: user },
-      { role: 'assistant', content: '{' },
-    ],
+    messages: [{ role: 'user', content: user }],
   })
   const block = message.content[0]
   if (block.type !== 'text') throw new Error('Unexpected Claude response type')
-  return ('{' + block.text).trim()
+  return stripFences(block.text)
+}
+
+function stripFences(raw: string): string {
+  return raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
 }
 
 // Configurable chat completion — swap vendor/model via env vars, no deploy needed.
@@ -74,14 +75,11 @@ export async function chatComplete({
       max_tokens: maxTokens,
       temperature,
       system,
-      messages: [
-        ...messages,
-        { role: 'assistant', content: '{' },
-      ],
+      messages,
     })
     const block = message.content[0]
     if (block.type !== 'text') throw new Error('Unexpected Claude response type')
-    return ('{' + block.text).trim()
+    return stripFences(block.text)
   } else {
     // OpenAI — use json_object response format so output is always parseable
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
