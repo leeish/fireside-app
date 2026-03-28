@@ -79,9 +79,9 @@ export const enrichEntry = inngest.createFunction(
     const updatedGraph = mergeExtraction(currentGraph, extraction)
     const newVersion = (narrativeRow?.graph_version ?? 0) + 1
 
-    // Re-synthesize the rolling summary from the full graph
-    const synthesizedSummary = await synthesizeGraph(updatedGraph)
-    updatedGraph.rolling_summary = synthesizedSummary
+    // Re-synthesize biographer notes from the full graph (entry_log is already updated in graph)
+    const synthesizedNotes = await synthesizeGraph(updatedGraph)
+    updatedGraph.rolling_summary = synthesizedNotes
 
     // Upsert the narrative (merge, never replace)
     await supabase
@@ -90,7 +90,7 @@ export const enrichEntry = inngest.createFunction(
         user_id: turn.user_id,
         graph: updatedGraph,
         graph_version: newVersion,
-        rolling_summary: synthesizedSummary,
+        rolling_summary: synthesizedNotes,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 

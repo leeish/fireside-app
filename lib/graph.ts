@@ -40,7 +40,8 @@ export interface NarrativeGraph {
   total_entries: number
   faith: FaithNode
   milestone_calendar: Record<string, string>
-  rolling_summary?: string
+  entry_log?: string       // append-only, one line per entry, chronological — never overwritten
+  rolling_summary?: string // Claude's synthesized biographer notes — rewritten each pass
 }
 
 export interface ExtractionResult {
@@ -159,11 +160,12 @@ export function mergeExtraction(graph: NarrativeGraph, extraction: ExtractionRes
     }
   }
 
-  // Append one-line summary to entry log (kept in full — synthesis reads all of them)
+  // Append to entry_log — permanent chronological record, never overwritten
+  // rolling_summary is reserved for Claude's synthesized biographer notes
   if (extraction.one_line_summary) {
-    const lines = (g.rolling_summary ?? '').split('\n').filter(Boolean)
+    const lines = (g.entry_log ?? '').split('\n').filter(Boolean)
     lines.push(extraction.one_line_summary)
-    g.rolling_summary = lines.join('\n')
+    g.entry_log = lines.join('\n')
   }
 
   g.total_entries += 1
@@ -219,8 +221,12 @@ export function buildGraphBriefing(graph: NarrativeGraph): string {
     if (parts.length) sections.push(`Faith: ${parts.join(', ')}`)
   }
 
+  if (graph.entry_log) {
+    sections.push(`Entry log (one line per entry, chronological — permanent record):\n${graph.entry_log}`)
+  }
+
   if (graph.rolling_summary) {
-    sections.push(`Entry log (one line per entry, chronological):\n${graph.rolling_summary}`)
+    sections.push(`Previous biographer notes (last synthesis pass):\n${graph.rolling_summary}`)
   }
 
   return sections.join('\n\n')
@@ -237,6 +243,7 @@ export function emptyGraph(displayName?: string): NarrativeGraph {
     total_entries: 0,
     faith: {},
     milestone_calendar: {},
+    entry_log: '',
     rolling_summary: '',
   }
 }

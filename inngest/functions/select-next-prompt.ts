@@ -171,6 +171,14 @@ export const selectNextPrompt = inngest.createFunction(
       graph.display_name = user.display_name ?? user.email
     }
 
+    // Load previously delivered questions — passed to generation to prevent repetition
+    const { data: promptHistory } = await supabase
+      .from('queued_prompts')
+      .select('question')
+      .eq('user_id', userId)
+      .neq('delivery_state', 'queued')
+      .order('created_at', { ascending: true })
+
     // Decision engine
     const selected = selectThread(graph)
 
@@ -189,13 +197,17 @@ Faith: ${JSON.stringify(graph.faith)}
 Recent summary: ${graph.rolling_summary ?? 'No entries yet'}
 `.trim()
 
+    const historyBlock = promptHistory && promptHistory.length > 0
+      ? `\n\nPreviously asked questions — do not repeat any of these. Returning to a topic for a deeper angle is encouraged — find a new entry point, a specific detail, or a layer beneath what's already been said:\n${promptHistory.map((p, i) => `${i + 1}. ${p.question}`).join('\n')}`
+      : ''
+
     const taskInstruction = `
 Graph context:
 ${graphContext}
 
 Task: Write ONE ${selected.questionType} question.
 Thread to address: ${selected.description}
-This is a Zone 1 email prompt — include the open door sentence.
+This is a Zone 1 email prompt — include the open door sentence.${historyBlock}
 `.trim()
 
     // Generate question (up to 2 attempts)

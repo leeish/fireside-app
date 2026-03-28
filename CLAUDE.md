@@ -17,3 +17,5 @@ Pushing to `main` triggers an automatic Vercel deployment. No manual deploy step
 ## External services
 
 Before writing any code that integrates with an external service (Resend, Inngest, Supabase, OpenAI, etc.), check their current docs first. Do not assume payload shapes, API behavior, or feature availability. Ask the user to paste relevant docs or fetch them directly if possible.
+
+If an integration with a third-party tool or library fails after one attempt, stop and check the docs before trying again. Do not guess at a second fix.
