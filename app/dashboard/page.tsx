@@ -25,7 +25,7 @@ export default async function DashboardPage() {
       .single(),
     supabase
       .from('conversations')
-      .select('id, topic, status, opened_at, channel, entries(id)')
+      .select('id, topic, status, opened_at, channel')
       .eq('user_id', user.id)
       .neq('status', 'archived')
       .order('opened_at', { ascending: false })
@@ -132,7 +132,6 @@ export default async function DashboardPage() {
                 const date = new Date(conv.opened_at).toLocaleDateString('en-US', {
                   month: 'short', day: 'numeric', year: 'numeric',
                 })
-                const entry = Array.isArray(conv.entries) ? conv.entries[0] ?? null : null
                 const isSettled = conv.status === 'settled'
                 const isActive = conv.status === 'active' || conv.status === 'wrap_offered'
 
@@ -161,12 +160,6 @@ export default async function DashboardPage() {
                           <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
                           Complete
                         </span>
-                      )}
-                      {entry && (
-                        <>
-                          <span className="text-border/60 text-xs">·</span>
-                          <span className="text-xs text-muted-fg">Entry</span>
-                        </>
                       )}
                     </div>
                   </Link>
