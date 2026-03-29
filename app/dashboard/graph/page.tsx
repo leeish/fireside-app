@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 
 export default async function GraphPage() {
@@ -16,32 +15,27 @@ export default async function GraphPage() {
     .single()
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      <div className="max-w-3xl mx-auto px-4 py-10">
-        <div className="mb-6 flex items-center justify-between">
-          <Link href="/dashboard" className="text-xs text-stone-400 hover:text-stone-600">
-            &larr; Back
-          </Link>
-          <div className="text-right">
-            <p className="text-xs text-stone-400">Version {narrative?.graph_version ?? 0}</p>
-            {narrative?.updated_at && (
-              <p className="text-xs text-stone-400">
-                Updated {new Date(narrative.updated_at).toLocaleString()}
-              </p>
-            )}
-          </div>
+    <div className="max-w-3xl mx-auto px-4 py-10">
+      <div className="mb-6 flex items-center justify-end">
+        <div className="text-right">
+          <p className="text-xs text-muted-fg">Version {narrative?.graph_version ?? 0}</p>
+          {narrative?.updated_at && (
+            <p className="text-xs text-muted-fg">
+              Updated {new Date(narrative.updated_at).toLocaleString()}
+            </p>
+          )}
         </div>
-
-        <h1 className="text-lg font-semibold text-stone-800 mb-6">Narrative Graph</h1>
-
-        {!narrative ? (
-          <p className="text-stone-500 text-sm">No graph data yet.</p>
-        ) : (
-          <pre className="bg-white border border-stone-200 rounded-xl p-6 text-xs text-stone-700 overflow-auto leading-relaxed whitespace-pre-wrap">
-            {JSON.stringify(narrative.graph, null, 2)}
-          </pre>
-        )}
       </div>
+
+      <h1 className="text-lg font-semibold text-foreground mb-6">Narrative Graph</h1>
+
+      {!narrative ? (
+        <p className="text-muted-fg text-sm">No graph data yet.</p>
+      ) : (
+        <pre className="bg-card border border-border rounded-xl p-6 text-xs text-foreground/80 overflow-auto leading-relaxed whitespace-pre-wrap">
+          {JSON.stringify(narrative.graph, null, 2)}
+        </pre>
+      )}
     </div>
   )
 }

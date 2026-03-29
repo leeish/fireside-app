@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 
 type Mode = 'free' | 'biographer'
 type AutosaveStatus = 'idle' | 'saving' | 'saved'
@@ -191,15 +190,11 @@ export default function NewEntryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-10">
+    <div className="max-w-2xl mx-auto px-4 py-10">
 
-        <div className="mb-8">
-          <Link href="/dashboard" className="text-xs text-muted-fg hover:text-foreground flex items-center gap-1 mb-6 transition-colors duration-300">
-            &larr; Back
-          </Link>
-          <h1 className="text-2xl font-display font-semibold text-foreground">Something on your mind?</h1>
-        </div>
+      <div className="mb-8">
+        <h1 className="text-2xl font-display font-semibold text-foreground">Something on your mind?</h1>
+      </div>
 
         {/* Mode toggle */}
         <div className="flex gap-2 mb-8">

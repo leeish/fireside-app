@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import ConversationClient from './ConversationClient'
@@ -60,38 +59,33 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-10">
+    <div className="max-w-2xl mx-auto px-4 py-10">
 
-        <div className="mb-8">
-          <Link href="/dashboard" className="text-xs text-muted-fg hover:text-foreground flex items-center gap-1 mb-6 transition-colors duration-300">
-            &larr; Back
-          </Link>
-          <p className="text-xs text-muted-fg mb-1">{openedDate}</p>
-          {!isSettled && (
-            <h1 className="text-lg font-display font-semibold text-foreground leading-snug whitespace-normal break-words">{conversation.topic}</h1>
-          )}
-        </div>
-
-        {isSettled ? (
-          <SettledView
-            conversationId={conversation.id}
-            channel={conversation.channel}
-            turns={decryptedTurns}
-            entry={entry}
-            topic={conversation.topic}
-          />
-        ) : (
-          <ConversationClient
-            conversationId={conversation.id}
-            topic={conversation.topic}
-            openedDate={openedDate}
-            initialTurns={decryptedTurns}
-            initialStatus={conversation.status}
-          />
+      <div className="mb-8">
+        <p className="text-xs text-muted-fg mb-1">{openedDate}</p>
+        {!isSettled && (
+          <h1 className="text-lg font-display font-semibold text-foreground leading-snug whitespace-normal break-words">{conversation.topic}</h1>
         )}
-
       </div>
+
+      {isSettled ? (
+        <SettledView
+          conversationId={conversation.id}
+          channel={conversation.channel}
+          turns={decryptedTurns}
+          entry={entry}
+          topic={conversation.topic}
+        />
+      ) : (
+        <ConversationClient
+          conversationId={conversation.id}
+          topic={conversation.topic}
+          openedDate={openedDate}
+          initialTurns={decryptedTurns}
+          initialStatus={conversation.status}
+        />
+      )}
+
     </div>
   )
 }
