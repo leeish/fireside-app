@@ -4,6 +4,8 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 // Creates (or finds) the conversation for a queued prompt and redirects to it.
 // This handles the in-app "Answer" flow where no conversation exists yet.
 
+export const dynamic = 'force-dynamic'
+
 export default async function AnswerPage({ params }: { params: Promise<{ promptId: string }> }) {
   const { promptId } = await params
 
@@ -22,20 +24,19 @@ export default async function AnswerPage({ params }: { params: Promise<{ promptI
 
   if (!qp) redirect('/dashboard')
 
-  // If a conversation already exists for this prompt (email delivered, or already opened in-app),
-  // find it and redirect rather than creating a duplicate.
-  if (qp.delivery_state === 'email_sent' || qp.delivery_state === 'in_app_seen') {
-    const { data: existing } = await service
-      .from('conversations')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('topic', qp.question)
-      .order('opened_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+  // Always check for an existing active conversation for this prompt before creating a new one.
+  // This prevents duplicates regardless of delivery_state, and avoids redirecting into archived conversations.
+  const { data: existing } = await service
+    .from('conversations')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('topic', qp.question)
+    .neq('status', 'archived')
+    .order('opened_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-    if (existing) redirect(`/dashboard/conversation/${existing.id}`)
-  }
+  if (existing) redirect(`/dashboard/conversation/${existing.id}`)
 
   // Create a fresh conversation for this prompt
   const { data: conversation } = await service
