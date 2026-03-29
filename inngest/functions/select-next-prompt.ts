@@ -22,7 +22,8 @@ interface ScoredThread {
 const KNOWN_ERAS = ['childhood', 'youth', 'mission', 'marriage', 'parenthood', 'career']
 
 // ─── Decision engine (pure logic — no LLM) ───────────────────
-function selectThread(graph: NarrativeGraph): ScoredThread {
+// Returns top 5 candidates. Claude makes the final selection.
+function selectTopThreads(graph: NarrativeGraph): ScoredThread[] {
   const threads: ScoredThread[] = []
   const lastWeight = graph.last_entry_weight ?? 'medium'
   const isLDS = graph.faith?.tradition === 'lds'
@@ -153,18 +154,31 @@ function selectThread(graph: NarrativeGraph): ScoredThread {
     }
   }
 
+  // Early-exploration mode — shapes the candidate pool
+  // Person threads suppressed so they don't surface as options before entry 15
+  if (graph.total_entries < 15) {
+    for (const t of threads) {
+      t.score *= t.threadId.startsWith('person:') ? 0.5 : 1.5
+    }
+  }
+
+  // Small jitter — only for tie-breaking within the candidate pool
+  for (const t of threads) {
+    t.score += Math.random() * 3
+  }
+
   // Default if graph is empty
   if (threads.length === 0) {
-    return {
+    return [{
       threadId: 'era:childhood',
       questionType: 'era',
       score: 10,
       description: 'Open the childhood chapter',
-    }
+    }]
   }
 
   threads.sort((a, b) => b.score - a.score)
-  return threads[0]
+  return threads.slice(0, 5)
 }
 
 // ─── Quality check ────────────────────────────────────────────
@@ -227,10 +241,10 @@ export const selectNextPrompt = inngest.createFunction(
       graph.display_name = user.display_name ?? user.email
     }
 
-    // Load previously delivered questions — passed to generation to prevent repetition
+    // Load previously delivered questions — passed to Claude for selection + repetition avoidance
     const { data: promptHistory } = await supabase
       .from('queued_prompts')
-      .select('question')
+      .select('question, question_type')
       .eq('user_id', userId)
       .neq('delivery_state', 'queued')
       .order('created_at', { ascending: true })
@@ -248,8 +262,8 @@ export const selectNextPrompt = inngest.createFunction(
         .eq('user_id', userId)
     }
 
-    // Decision engine
-    const selected = selectThread(graph)
+    // Scoring engine — returns top 5 candidates for Claude to choose from
+    const candidates = selectTopThreads(graph)
 
     // Build generation prompt
     const systemPrompt = buildSystemPrompt(graph)
@@ -271,26 +285,75 @@ Recent summary: ${graph.rolling_summary ?? 'No entries yet'}
 `.trim()
 
     const historyBlock = promptHistory && promptHistory.length > 0
-      ? `\n\nPreviously asked questions — do not repeat any of these. Returning to a topic for a deeper angle is encouraged — find a new entry point, a specific detail, or a layer beneath what's already been said:\n${promptHistory.map((p, i) => `${i + 1}. ${p.question}`).join('\n')}`
+      ? `\n\nPreviously asked questions — do not repeat any of these. Returning to a topic for a deeper angle is encouraged — find a new entry point, a specific detail, or a layer beneath what's already been said:\n${promptHistory.map((p, i) => `${i + 1}. [${p.question_type ?? 'unknown'}] ${p.question}`).join('\n')}`
+      : ''
+
+    const candidateList = candidates
+      .map((t, i) => `${i + 1}. threadId="${t.threadId}" | type=${t.questionType} | ${t.description}`)
+      .join('\n')
+
+    const recentTypes = (promptHistory ?? []).slice(-3).map(p => p.question_type).filter(Boolean)
+
+    const earlyNote = graph.total_entries < 15
+      ? `- This person is early in their story (entry ${graph.total_entries + 1} of their first 15). Strongly favor threads that open new chapters over ones that deepen what's already been shared.`
+      : ''
+
+    const varietyNote = recentTypes.length >= 2
+      ? `- Recent question types (oldest to newest): ${recentTypes.join(' → ')}. Avoid repeating the same category back to back.`
       : ''
 
     const taskInstruction = `
 Graph context:
 ${graphContext}
 
-Task: Write ONE ${selected.questionType} question.
-Thread to address: ${selected.description}${historyBlock}
+CANDIDATE THREADS — choose one and write the question:
+${candidateList}
+${historyBlock}
+
+SELECTION GUIDANCE:
+${earlyNote}
+${varietyNote}
+- Pick the thread that creates the best narrative experience given the full history above.
+- A good biographer reads the room: consider pacing, emotional weight, and what chapters feel neglected.
+- Do not invent a new topic. Choose from the candidates only.
+
+Return ONLY valid JSON, no markdown, no explanation:
+{"selectedThreadId": "...", "questionType": "...", "question": "..."}
 `.trim()
 
     // Generate question (up to 2 attempts)
     let question = ''
+    let selectedThreadId = candidates[0].threadId
+    let selectedQuestionType = candidates[0].questionType
+
     for (let attempt = 1; attempt <= 2; attempt++) {
-      question = await claudeComplete({
+      const raw = await claudeComplete({
         system: systemPrompt,
-        user: attempt === 1 ? taskInstruction : taskInstruction + '\n\nPrevious attempt failed quality check. Write a better version.',
-        temperature: 0.7,
-        maxTokens: 300,
+        user: attempt === 1
+          ? taskInstruction
+          : taskInstruction + '\n\nPrevious attempt failed. Return valid JSON only: {"selectedThreadId": "...", "questionType": "...", "question": "..."}',
+        temperature: 0.6,
+        maxTokens: 400,
       })
+
+      try {
+        const parsed = JSON.parse(raw)
+        question = parsed.question ?? ''
+
+        // Validate Claude's thread selection against the candidate list
+        const match = candidates.find(c => c.threadId === parsed.selectedThreadId)
+        if (match) {
+          selectedThreadId = match.threadId
+          selectedQuestionType = match.questionType
+        } else {
+          console.warn(`[select-next-prompt] Claude selected unknown threadId "${parsed.selectedThreadId}" — using top candidate`)
+        }
+      } catch {
+        // JSON parse failed — retry
+        continue
+      }
+
+      if (!question) continue
 
       const check = await qualityCheck(question, graphContext)
       if (check.pass) break
@@ -302,14 +365,14 @@ Thread to address: ${selected.description}${historyBlock}
 
     if (!question) throw new Error('Failed to generate question')
 
-    // Insert queued_prompt
+    // Insert queued_prompt using Claude's actual selection
     const { data: qp, error: qpError } = await supabase
       .from('queued_prompts')
       .insert({
         user_id: userId,
         question,
-        thread_id: selected.threadId,
-        question_type: selected.questionType,
+        thread_id: selectedThreadId,
+        question_type: selectedQuestionType,
         delivery_state: 'queued',
         model_used: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
       })
@@ -343,8 +406,8 @@ Thread to address: ${selected.description}${historyBlock}
     return {
       userId,
       queuedPromptId: qp.id,
-      threadId: selected.threadId,
-      questionType: selected.questionType,
+      threadId: selectedThreadId,
+      questionType: selectedQuestionType,
       deliverAt: deliverAt.toISOString(),
     }
   }
