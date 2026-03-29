@@ -64,13 +64,58 @@ function selectThread(graph: NarrativeGraph): ScoredThread {
     threads.push({ threadId: `person:${name}`, questionType: qType, score, description })
   }
 
-  // Lightness after heavy entry
+  // Lightness after heavy entry — scored high enough to reliably win
   if (lastWeight === 'heavy') {
     threads.push({
       threadId: 'lightness',
       questionType: 'lightness',
-      score: 28,
+      score: 40,
       description: 'Shift to something warm or funny after a heavy entry',
+    })
+  }
+
+  // Open threads — topics the person mentioned in passing that are worth returning to
+  for (const thread of graph.open_threads ?? []) {
+    threads.push({
+      threadId: `open_thread:${thread.slice(0, 40)}`,
+      questionType: 'depth',
+      score: 18,
+      description: `Specific topic mentioned in passing, worth returning to: "${thread}"`,
+    })
+  }
+
+  // Themes — ask an origin question to trace where a pattern began
+  const HEAVY_THEMES = ['loss', 'grief', 'death', 'trauma', 'abuse', 'addiction']
+  for (const theme of graph.themes ?? []) {
+    const isHeavy = HEAVY_THEMES.some(h => theme.toLowerCase().includes(h))
+    const score = isHeavy
+      ? (lastWeight === 'heavy' ? 10 : 20)  // deprioritize heavy themes after a heavy entry
+      : 14
+    threads.push({
+      threadId: `theme:${theme}`,
+      questionType: 'origin',
+      score,
+      description: `Theme present in their story: "${theme}" — ask an origin question to find where this began`,
+    })
+  }
+
+  // Places — ask a sensory question to bring a place to life
+  for (const place of graph.places ?? []) {
+    threads.push({
+      threadId: `place:${place.slice(0, 40)}`,
+      questionType: 'sensory',
+      score: 12,
+      description: `Place they've mentioned: "${place}" — ask for a sensory memory of this place`,
+    })
+  }
+
+  // Interests — go deeper on a hobby or passion they've mentioned
+  for (const interest of graph.interests ?? []) {
+    threads.push({
+      threadId: `interest:${interest.slice(0, 40)}`,
+      questionType: 'depth',
+      score: 15,
+      description: `Interest or passion they've mentioned: "${interest}" — explore what it means to them or where it started`,
     })
   }
 
@@ -205,6 +250,9 @@ Total entries: ${graph.total_entries}
 Eras covered: ${JSON.stringify(graph.eras)}
 People: ${JSON.stringify(Object.keys(graph.people ?? {}))}
 Themes: ${(graph.themes ?? []).join(', ')}
+Interests: ${(graph.interests ?? []).join(', ')}
+Places mentioned: ${(graph.places ?? []).join(', ')}
+Open threads (topics worth returning to): ${(graph.open_threads ?? []).join('; ')}
 Deflections: ${(graph.deflections ?? []).join('; ')}
 Last entry weight: ${graph.last_entry_weight ?? 'unknown'}
 Faith: ${JSON.stringify(graph.faith)}

@@ -144,10 +144,10 @@ Type: `lib/graph.ts`. Stored as JSONB in `narratives.graph`.
 
 The graph is the AI's persistent model of a person. It grows with every entry.
 
-**Key fields:** `people` (name > relationship, sentiment, mentions, facts, unexplored threads), `places`, `eras` (name > richness + entry count), `themes`, `deflections`, `faith` (tradition, tier, milestones, spiritual_moments), `last_entry_weight`, `total_entries`, `entry_log` (append-only), `rolling_summary` (rewritten by Claude each pass).
+**Key fields:** `people` (name > relationship, sentiment, mentions, facts, unexplored threads), `places`, `eras` (name > richness + entry count), `themes`, `interests` (hobbies/passions), `open_threads` (topics mentioned in passing, accumulated across entries, capped at 20), `deflections`, `faith` (tradition, tier, milestones, spiritual_moments), `last_entry_weight`, `total_entries`, `entry_log` (append-only), `rolling_summary` (rewritten by Claude each pass).
 
 **Operations:**
-- `mergeExtraction(graph, extraction)` -- pure function, called after every entry
+- `mergeExtraction(graph, extraction)` -- pure function, called after every entry. Accumulates `new_threads_opened` into `open_threads` (capped at 20).
 - `buildGraphBriefing(graph)` -- formats graph as text for LLM consumption
 - `synthesizeGraph(graph)` -- Claude rewrites `rolling_summary` as biographer's working notes
 - `emptyGraph(displayName)` -- creates blank graph for new users
@@ -163,6 +163,16 @@ Source: `lib/craft-system.ts`. Injected as system prompt for question generation
 | 4 | Faith fluency | Gated by `faith.tier`. Tier 2: generic Christian context. Tier 3+: deep LDS vocabulary, milestones, honest territory |
 
 **Question types:** `depth`, `origin`, `sensory`, `relationship`, `era`, `milestone`, `faith_milestone`, `faith_texture`, `lightness`
+
+**Scoring engine thread sources** (in `selectThread()`):
+- Eras (uncaptured=20, low richness=10, mission+LDS bonus +15)
+- People (mentions, unexplored threads, sentiment)
+- Open threads from entry passing mentions (score=18, type=depth)
+- Themes -- origin questions (score=14, heavy themes like loss/grief=20)
+- Places -- sensory questions (score=12)
+- Interests/hobbies -- depth questions (score=15)
+- Lightness after heavy entry (score=40)
+- Faith texture / faith milestones
 
 **Quality check** (in `select-next-prompt`): Claude validates generated question. Fails if generic, multi-question, starts with "I", >3 sentences, or pushes deflected topic. Up to 2 attempts.
 

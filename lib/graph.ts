@@ -35,6 +35,8 @@ export interface NarrativeGraph {
   eras: Record<string, EraNode>
   themes: string[]
   deflections: string[]
+  interests: string[]      // hobbies, passions, activities they mention enjoying
+  open_threads: string[]   // topics mentioned in passing worth returning to (accumulated from extractions)
   emotional_pattern?: string
   last_entry_weight?: string
   total_entries: number
@@ -57,6 +59,7 @@ export interface ExtractionResult {
   emotional_weight?: string
   themes?: string[]
   deflections?: string[]
+  interests?: string[]
   faith_signals?: {
     tradition_signals?: string[]
     milestones_mentioned?: string[]
@@ -135,6 +138,20 @@ export function mergeExtraction(graph: NarrativeGraph, extraction: ExtractionRes
   for (const d of extraction.deflections ?? []) {
     if (!g.deflections.includes(d)) g.deflections.push(d)
   }
+
+  // Interests
+  if (!g.interests) g.interests = []
+  for (const interest of extraction.interests ?? []) {
+    if (!g.interests.includes(interest)) g.interests.push(interest)
+  }
+
+  // Open threads — topics mentioned in passing worth returning to.
+  // Accumulated across entries; capped at 20 to prevent unbounded growth.
+  if (!g.open_threads) g.open_threads = []
+  for (const thread of extraction.new_threads_opened ?? []) {
+    if (!g.open_threads.includes(thread)) g.open_threads.push(thread)
+  }
+  if (g.open_threads.length > 20) g.open_threads = g.open_threads.slice(-20)
 
   // Emotional weight
   if (extraction.emotional_weight) {
@@ -240,6 +257,8 @@ export function emptyGraph(displayName?: string): NarrativeGraph {
     eras: {},
     themes: [],
     deflections: [],
+    interests: [],
+    open_threads: [],
     total_entries: 0,
     faith: {},
     milestone_calendar: {},

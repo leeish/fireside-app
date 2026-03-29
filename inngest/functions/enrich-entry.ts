@@ -13,10 +13,11 @@ Return a JSON object with exactly these fields:
 - places: string[] — specific places mentioned
 - era: one of "childhood" | "youth" | "mission" | "marriage" | "parenthood" | "career" | "other" | null
 - emotional_weight: "heavy" | "medium" | "light"
-- themes: string[] — e.g. ["faith", "family", "childhood", "belonging"]
+- themes: string[] — emotional/narrative themes, e.g. ["loss", "belonging", "identity", "faith", "grief", "resilience", "family tension"]
+- interests: string[] — hobbies, passions, and activities they enjoy or engage in, e.g. ["woodworking", "cooking", "hiking", "reading", "music"]
 - deflections: string[] — things started then redirected, e.g. ["started to discuss father leaving but changed subject"]
 - faith_signals: { tradition_signals: string[], milestones_mentioned: string[], spiritual_moments: string[] }
-- new_threads_opened: string[] — topics mentioned in passing worth returning to
+- new_threads_opened: string[] — specific memories, events, or topics they mentioned briefly that are worth returning to, e.g. ["the summer they worked on a fishing boat", "a falling out with a close friend in college"]
 - one_line_summary: string — 1-2 sentence third-person summary of what this memory is about`
 
 export const enrichEntry = inngest.createFunction(
