@@ -2,6 +2,7 @@ import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { claudeComplete } from '@/lib/ai'
 import { buildSystemPrompt } from '@/lib/craft-system'
+import { synthesizeGraph } from '@/lib/synthesize-graph'
 import type { NarrativeGraph } from '@/lib/graph'
 
 type SelectNextPromptEvent = { data: { userId: string } }
@@ -178,6 +179,19 @@ export const selectNextPrompt = inngest.createFunction(
       .eq('user_id', userId)
       .neq('delivery_state', 'queued')
       .order('created_at', { ascending: true })
+
+    // Synthesize fresh biographer notes right before generation — this is the only
+    // place rolling_summary is actually needed, so we defer synthesis until here.
+    if (graph.total_entries > 0) {
+      const freshSummary = await synthesizeGraph(graph)
+      graph.rolling_summary = freshSummary
+
+      // Persist so chat-respond can use it as background context
+      await supabase
+        .from('narratives')
+        .update({ rolling_summary: freshSummary, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+    }
 
     // Decision engine
     const selected = selectThread(graph)
