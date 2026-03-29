@@ -16,6 +16,10 @@ Pushing to `main` triggers an automatic Vercel deployment. No manual deploy step
 
 After every push, wait 60 seconds then check the deployment status via the GitHub deployments API (`gh api repos/leeish/fireside-app/deployments`) and fetch the latest deployment's statuses to confirm it reached `success`. If it failed, read the build logs immediately and fix the issue before doing anything else.
 
+## Application reference
+
+Read `APP.md` at the start of each session before exploring the codebase. After any change that affects routes, data flows, schema, Inngest events, or non-obvious behaviors, update `APP.md` to reflect the new state in the same commit.
+
 ## External services
 
 Before writing any code that integrates with an external service (Resend, Inngest, Supabase, OpenAI, etc.), check their current docs first. Do not assume payload shapes, API behavior, or feature availability. Ask the user to paste relevant docs or fetch them directly if possible.
