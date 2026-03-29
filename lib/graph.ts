@@ -36,6 +36,7 @@ export interface NarrativeGraph {
   themes: string[]
   deflections: string[]
   interests: string[]      // hobbies, passions, activities they mention enjoying
+  events: string[]         // specific named experiences worth exploring (trips, family events, milestones)
   open_threads: string[]   // topics mentioned in passing worth returning to (accumulated from extractions)
   emotional_pattern?: string
   last_entry_weight?: string
@@ -60,6 +61,7 @@ export interface ExtractionResult {
   themes?: string[]
   deflections?: string[]
   interests?: string[]
+  events?: string[]
   faith_signals?: {
     tradition_signals?: string[]
     milestones_mentioned?: string[]
@@ -143,6 +145,12 @@ export function mergeExtraction(graph: NarrativeGraph, extraction: ExtractionRes
   if (!g.interests) g.interests = []
   for (const interest of extraction.interests ?? []) {
     if (!g.interests.includes(interest)) g.interests.push(interest)
+  }
+
+  // Events
+  if (!g.events) g.events = []
+  for (const event of extraction.events ?? []) {
+    if (!g.events.includes(event)) g.events.push(event)
   }
 
   // Open threads — topics mentioned in passing worth returning to.
@@ -258,6 +266,7 @@ export function emptyGraph(displayName?: string): NarrativeGraph {
     themes: [],
     deflections: [],
     interests: [],
+    events: [],
     open_threads: [],
     total_entries: 0,
     faith: {},

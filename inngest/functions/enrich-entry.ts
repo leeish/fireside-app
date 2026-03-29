@@ -15,6 +15,7 @@ Return a JSON object with exactly these fields:
 - emotional_weight: "heavy" | "medium" | "light"
 - themes: string[] — emotional/narrative themes, e.g. ["loss", "belonging", "identity", "faith", "grief", "resilience", "family tension"]
 - interests: string[] — hobbies, passions, and activities they enjoy or engage in, e.g. ["woodworking", "cooking", "hiking", "reading", "music"]
+- events: string[] — specific named experiences worth exploring further, e.g. ["2025 Florida vacation", "cruise to Alaska", "dad's retirement party", "the summer we renovated the house"]
 - deflections: string[] — things started then redirected, e.g. ["started to discuss father leaving but changed subject"]
 - faith_signals: { tradition_signals: string[], milestones_mentioned: string[], spiritual_moments: string[] }
 - new_threads_opened: string[] — specific memories, events, or topics they mentioned briefly that are worth returning to, e.g. ["the summer they worked on a fishing boat", "a falling out with a close friend in college"]

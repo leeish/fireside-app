@@ -109,6 +109,16 @@ function selectThread(graph: NarrativeGraph): ScoredThread {
     })
   }
 
+  // Events — specific named experiences worth exploring in depth
+  for (const event of graph.events ?? []) {
+    threads.push({
+      threadId: `event:${event.slice(0, 40)}`,
+      questionType: 'depth',
+      score: 16,
+      description: `Specific experience they've mentioned: "${event}" — ask for a memory or moment from this event`,
+    })
+  }
+
   // Interests — go deeper on a hobby or passion they've mentioned
   for (const interest of graph.interests ?? []) {
     threads.push({
@@ -251,6 +261,7 @@ Eras covered: ${JSON.stringify(graph.eras)}
 People: ${JSON.stringify(Object.keys(graph.people ?? {}))}
 Themes: ${(graph.themes ?? []).join(', ')}
 Interests: ${(graph.interests ?? []).join(', ')}
+Events mentioned: ${(graph.events ?? []).join(', ')}
 Places mentioned: ${(graph.places ?? []).join(', ')}
 Open threads (topics worth returning to): ${(graph.open_threads ?? []).join('; ')}
 Deflections: ${(graph.deflections ?? []).join('; ')}
