@@ -183,6 +183,15 @@ export function mergeExtraction(graph: NarrativeGraph, extraction: ExtractionRes
     for (const m of fs.spiritual_moments ?? []) {
       if (!g.faith.spiritual_moments.includes(m)) g.faith.spiritual_moments.push(m)
     }
+
+    // Infer mission participation from the user's own words.
+    // Only set when milestones_mentioned explicitly includes mission — never assumed from LDS detection alone.
+    if (fs.milestones_mentioned?.some(m => m.toLowerCase().includes('mission'))) {
+      if (!g.faith.prompt_readiness) g.faith.prompt_readiness = {}
+      if (g.faith.prompt_readiness.mission !== 'confirmed') {
+        g.faith.prompt_readiness.mission = 'confirmed'
+      }
+    }
   }
 
   // Append to entry_log — permanent chronological record, never overwritten

@@ -68,7 +68,8 @@ export function buildLayer3(graph: NarrativeGraph): string {
   const sections: string[] = []
   const eras = Object.keys(graph.eras ?? {})
 
-  if (eras.includes('mission') || graph.faith?.tradition === 'lds') {
+  const missionConfirmed = graph.faith?.prompt_readiness?.mission === 'confirmed'
+  if (eras.includes('mission') || missionConfirmed) {
     sections.push(`
 MISSION (LDS): A mission is 2 years of total emotional and physical isolation—assigned companion, no social media, limited calls home. The MTC precedes it (6-12 weeks). What's worth asking: the first companion, the investigator they still remember, the week everything went wrong, what coming home actually felt like (almost never discussed but universally significant—the mission ends and 48 hours later they're back in their childhood bedroom). Deep spiritual questions require established trust; start with texture and people.
 `.trim())

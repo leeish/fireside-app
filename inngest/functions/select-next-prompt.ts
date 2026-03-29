@@ -27,6 +27,7 @@ function selectTopThreads(graph: NarrativeGraph): ScoredThread[] {
   const threads: ScoredThread[] = []
   const lastWeight = graph.last_entry_weight ?? 'medium'
   const isLDS = graph.faith?.tradition === 'lds'
+  const missionConfirmed = graph.faith?.prompt_readiness?.mission === 'confirmed'
 
   // Score uncaptured / thin eras
   for (const era of KNOWN_ERAS) {
@@ -36,7 +37,7 @@ function selectTopThreads(graph: NarrativeGraph): ScoredThread[] {
     else if (eraData.richness === 'low') score = 10
     else if (eraData.richness === 'medium') score = 5
 
-    if (era === 'mission' && isLDS) score += 15
+    if (era === 'mission' && missionConfirmed) score += 15
     if (lastWeight === 'heavy') score -= 5  // deprioritize more digging after heavy entry
 
     if (score > 0) {
