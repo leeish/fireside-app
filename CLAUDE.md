@@ -14,6 +14,8 @@ Commit messages should be plain text only — subject line + optional bullet bod
 
 Pushing to `main` triggers an automatic Vercel deployment. No manual deploy step needed.
 
+After every push, wait 60 seconds then check the deployment status via the GitHub deployments API (`gh api repos/leeish/fireside-app/deployments`) and fetch the latest deployment's statuses to confirm it reached `success`. If it failed, read the build logs immediately and fix the issue before doing anything else.
+
 ## External services
 
 Before writing any code that integrates with an external service (Resend, Inngest, Supabase, OpenAI, etc.), check their current docs first. Do not assume payload shapes, API behavior, or feature availability. Ask the user to paste relevant docs or fetch them directly if possible.
