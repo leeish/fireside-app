@@ -234,7 +234,7 @@ export default function ConversationClient({
 
       {/* Input area */}
       <div className="border-t border-border/40 pt-8">
-        {!isWrapOffered && !waitingForAI && (
+        {mode === 'interview' && !isWrapOffered && !waitingForAI && (
           <p className="text-xs text-muted-fg/60 text-center mb-5">
             The biographer will suggest wrapping up when the entry feels complete.{' '}
             <button

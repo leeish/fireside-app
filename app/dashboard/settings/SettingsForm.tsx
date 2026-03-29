@@ -21,11 +21,14 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
   const [name, setName] = useState(displayName)
   const [selectedCadence, setSelectedCadence] = useState(cadence)
   const [active, setActive] = useState(isActive)
-  const [autosave, setAutosave] = useState(true)
-
-  useEffect(() => {
-    setAutosave(localStorage.getItem('fireside_autosave') !== 'false')
-  }, [])
+  const [autosave, setAutosave] = useState(() => {
+    if (typeof window === 'undefined') return true
+    try {
+      return localStorage.getItem('fireside_autosave') !== 'false'
+    } catch {
+      return true
+    }
+  })
 
   function toggleAutosave() {
     const next = !autosave
