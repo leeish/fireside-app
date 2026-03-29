@@ -334,6 +334,5 @@ export default function NewEntryPage() {
         )}
 
       </div>
-    </div>
   )
 }
