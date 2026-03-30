@@ -129,12 +129,12 @@ export const chatSettle = inngest.createFunction(
       await supabase.from('clarifications').insert(clarifications)
     }
 
-    // Queue the next prompt
-    await inngest.send({
-      name: 'fireside/prompt.select',
-      data: { userId },
-    })
+    // Queue conversation for batch processing — synthesis and prompt selection happen at midnight ET
+    await supabase
+      .from('conversations')
+      .update({ queued_for_batch: true })
+      .eq('id', conversationId)
 
-    return { conversationId, graphVersion: newVersion, themes: extraction.themes }
+    return { conversationId, graphVersion: newVersion, themes: extraction.themes, queued_for_batch: true }
   }
 )
