@@ -33,7 +33,7 @@ export default async function DashboardPage() {
       .from('queued_prompts')
       .select('id, question, question_type, delivery_state, reasoning')
       .eq('user_id', user.id)
-      .eq('delivery_state', 'queued')
+      .in('delivery_state', ['queued', 'in_app_seen'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
