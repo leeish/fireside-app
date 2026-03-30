@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { claudeComplete } from '@/lib/ai'
+import { claudeComplete, logTokenUsage, getClaudeClient } from '@/lib/ai'
 
 export async function POST(
   req: NextRequest,
@@ -96,11 +96,22 @@ Keep the storyteller's exact phrases and specific details intact. Do not add or 
 Return only the written account. No commentary, no quotation marks, no markdown.`
   }
 
-  const cleaned = await claudeComplete({
+  const { model: claudeModel } = getClaudeClient()
+  const { text: cleaned, inputTokens, outputTokens } = await claudeComplete({
     system: systemPrompt,
     user: sourceText,
     maxTokens: 2048,
     temperature: 0.4,
+  })
+
+  void logTokenUsage(service, {
+    userId: user.id,
+    conversationId,
+    inngestFunction: 'cleanup',
+    model: claudeModel,
+    inputTokens,
+    outputTokens,
+    purpose: 'entry cleanup',
   })
 
   await service

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { claudeComplete } from '@/lib/ai'
+import { claudeComplete, logTokenUsage, getClaudeClient } from '@/lib/ai'
 
 const INTENSITY_PROMPTS = {
   light: `Lightly reshape the following personal account into a journal entry. \
@@ -93,11 +93,22 @@ export async function POST(
     .filter(Boolean)
     .join('\n\n')
 
-  const story = await claudeComplete({
+  const { model: claudeModel } = getClaudeClient()
+  const { text: story, inputTokens, outputTokens } = await claudeComplete({
     system: INTENSITY_PROMPTS[intensity],
     user: sourceText,
     maxTokens: 3000,
     temperature: intensity === 'full' ? 0.8 : 0.6,
+  })
+
+  void logTokenUsage(service, {
+    userId: user.id,
+    conversationId,
+    inngestFunction: 'story',
+    model: claudeModel,
+    inputTokens,
+    outputTokens,
+    purpose: 'story generation',
   })
 
   await service
