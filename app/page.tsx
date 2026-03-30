@@ -3,7 +3,7 @@ import ThemeToggle from './components/ThemeToggle'
 
 export const metadata = {
   title: 'Fireside — Your Family Story',
-  description: 'The journal the church always told you to keep — finally easy enough to actually do.',
+  description: 'Capture your family stories through thoughtful conversations. No blank page. No generic prompts.',
 }
 
 const FEATURES = [
@@ -16,8 +16,8 @@ const FEATURES = [
     description: 'Each answer builds on what came before. Your story unfolds naturally over time.',
   },
   {
-    title: 'Culturally Aware',
-    description: 'Understands the shape of an LDS life and the values that matter to your family.',
+    title: 'No Blank Page',
+    description: 'Skip the intimidation of journaling alone. Get guided prompts tailored to your life.',
   },
   {
     title: 'See Your Progress',
@@ -52,10 +52,10 @@ export default function Home() {
         <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
           <div className="text-center space-y-6">
             <h1 className="text-5xl sm:text-6xl font-display font-bold text-foreground leading-tight tracking-tight">
-              The journal the church always told you to keep
+              Capture the stories that matter
             </h1>
             <p className="text-xl text-muted-fg leading-relaxed max-w-2xl mx-auto">
-              Finally easy enough to actually do. Your family story, told one question at a time.
+              Your family stories deserve to be told. Fireside makes it easy through thoughtful conversations, one question at a time.
             </p>
             <div className="flex gap-4 justify-center pt-4">
               <Link
@@ -83,7 +83,7 @@ export default function Home() {
                 How it works
               </h2>
               <p className="text-lg text-muted-fg max-w-2xl mx-auto">
-                Fireside guides you through meaningful conversations about your life. No blank page. No generic prompts. Just you and a thoughtful biographer who genuinely cares about your story.
+                Fireside guides you through meaningful conversations about your life and memories. Our AI adapts to what you share, building deeper context with each answer to ask the next right question.
               </p>
             </div>
 
@@ -109,7 +109,7 @@ export default function Home() {
               Ready to start?
             </h2>
             <p className="text-lg text-muted-fg max-w-2xl mx-auto leading-relaxed">
-              Join families who are finally capturing the stories that matter. Start with a 30-day free trial — no card required.
+              Begin capturing your family stories today. Start with a 30-day free trial — no card required.
             </p>
             <div>
               <Link
