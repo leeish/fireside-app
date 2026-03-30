@@ -23,11 +23,11 @@ export default async function DashboardPage() {
       .single(),
     supabase
       .from('conversations')
-      .select('id, topic, status, opened_at, channel')
+      .select('id, topic, status, opened_at, updated_at, channel')
       .eq('user_id', user.id)
       .neq('status', 'archived')
-      .order('opened_at', { ascending: false })
-      .limit(20),
+      .order('updated_at', { ascending: false })
+      .limit(5),
     supabase
       .from('queued_prompts')
       .select('id, question, question_type, delivery_state')
@@ -103,9 +103,14 @@ export default async function DashboardPage() {
 
           {/* Conversation list */}
           <div className="space-y-2">
-            <h2 className="text-xs font-medium text-muted-fg uppercase tracking-widest mb-3">
-              Your story so far
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-medium text-muted-fg uppercase tracking-widest">
+                Recent Updates
+              </h2>
+              <Link href="/dashboard/history" className="text-xs text-muted-fg hover:text-foreground transition-colors">
+                View all &rarr;
+              </Link>
+            </div>
             {conversations!.map(conv => {
               const date = new Date(conv.opened_at).toLocaleDateString('en-US', {
                 month: 'short', day: 'numeric', year: 'numeric',

@@ -24,7 +24,7 @@ Schema: `db/schema.sql`. All tables have RLS enabled.
 | `users` | Mirrors Supabase Auth. `onboarding_profile` (JSONB), `cadence`, `is_active`, `display_name`, `subscription_tier`, `last_active_at` |
 | `queued_prompts` | Delivery queue. States: `queued` > `email_sent` > `in_app_seen` > `engaged` > `complete` |
 | `narratives` | One row per user. `graph` (JSONB) is the AI's full model of the person. `rolling_summary`, `graph_version` |
-| `conversations` | One per topic/session. `status`: `active` > `wrap_offered` > `settled` > `archived`. `origin`: `biographer`, `user_initiated`, `entry_reentry` |
+| `conversations` | One per topic/session. `status`: `active` > `wrap_offered` > `settled` > `archived`. `origin`: `biographer`, `user_initiated`, `entry_reentry`. `updated_at` auto-updated via trigger on every row update |
 | `turns` | Message log. User turns encrypted, biographer turns plaintext. `processed` flag tracks pipeline completion |
 | `entries` | Settled journal output. `content`, `cleaned_content`, `story_content`, `story_intensity` |
 | `milestones` | Calendar events, faith milestones, life events with `depth_score` |
@@ -40,6 +40,7 @@ Schema: `db/schema.sql`. All tables have RLS enabled.
 | `/onboarding` | Client | 2-step: display name + interest picker |
 | `/dashboard` | Server | Main hub: pending prompt, conversation list, new-user picker |
 | `/dashboard/conversation/[id]` | Server | Active: real-time chat. Settled: tabbed view (transcript/cleanup/story) |
+| `/dashboard/history` | Server | All non-archived conversations sorted by recent activity |
 | `/dashboard/archive` | Server | Archived conversations with restore/delete |
 | `/dashboard/new` | Client | Free writing + biographer-guided entry modes, speech input, autosave |
 | `/dashboard/answer/[promptId]` | Server | Creates conversation for queued prompt, redirects to it |
