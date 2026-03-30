@@ -10,6 +10,11 @@ const EXTRACTION_SYSTEM = `You are analyzing a personal journal entry. Extract s
 
 Return a JSON object with exactly these fields:
 - people: array of { name, relationship, sentiment ("warm"|"complicated"|"neutral"|"positive"|"negative"), new_facts (string[]), new_threads (string[]) }
+  IMPORTANT: Only extract real people the user mentions. Exclude:
+  - The biographer or interviewer (don't extract "Biographer" or similar)
+  - Generic placeholders like "Person", "User", "Subject"
+  - The user themselves (they are the narrator, not a person in the story)
+  Focus on family members, friends, colleagues, and other real people in their accounts.
 - places: string[] — specific places mentioned
 - era: one of "childhood" | "youth" | "mission" | "marriage" | "parenthood" | "career" | "other" | null
 - emotional_weight: "heavy" | "medium" | "light"

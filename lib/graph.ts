@@ -107,8 +107,14 @@ export function mergeExtraction(graph: NarrativeGraph, extraction: ExtractionRes
   // Deep clone — never mutate in place
   const g: NarrativeGraph = JSON.parse(JSON.stringify(graph))
 
+  // System placeholders to exclude from the graph
+  const SYSTEM_PLACEHOLDERS = ['Person', 'Biographer', 'User', 'Subject', 'Self']
+
   // People
   for (const person of extraction.people ?? []) {
+    // Skip system placeholders
+    if (SYSTEM_PLACEHOLDERS.includes(person.name)) continue
+
     if (!g.people[person.name]) {
       g.people[person.name] = { mentions: 0, facts: [], unexplored: [] }
     }

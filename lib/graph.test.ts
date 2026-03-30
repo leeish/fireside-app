@@ -59,16 +59,16 @@ describe('narrative graph', () => {
     it('updates person relationship only once', () => {
       let graph = emptyGraph()
       graph = mergeExtraction(graph, {
-        people: [{ name: 'Person', relationship: 'sibling' }],
+        people: [{ name: 'Mom', relationship: 'sibling' }],
       })
-      expect(graph.people.Person.relationship).toBe('sibling')
+      expect(graph.people.Mom.relationship).toBe('sibling')
 
       // Try to change it
       graph = mergeExtraction(graph, {
-        people: [{ name: 'Person', relationship: 'friend' }],
+        people: [{ name: 'Mom', relationship: 'friend' }],
       })
       // Relationship is updated
-      expect(graph.people.Person.relationship).toBe('friend')
+      expect(graph.people.Mom.relationship).toBe('friend')
     })
 
     it('accumulates person facts without duplication', () => {
