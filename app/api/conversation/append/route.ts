@@ -2,16 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { encrypt } from '@/lib/crypto'
 import { inngest } from '@/inngest/client'
+import { ConversationAppendSchema } from '@/lib/schemas'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { conversationId, responseText } = await request.json()
-  if (!conversationId || !responseText?.trim()) {
-    return NextResponse.json({ error: 'Missing conversationId or response' }, { status: 400 })
+  const parsed = ConversationAppendSchema.safeParse(await request.json())
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
   }
+  const { conversationId, responseText } = parsed.data
 
   const service = createServiceClient()
 
@@ -27,7 +29,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
   }
 
-  const encryptedResponse = encrypt(responseText.trim(), process.env.MEMORY_ENCRYPTION_KEY!)
+  const encryptedResponse = encrypt(responseText, process.env.MEMORY_ENCRYPTION_KEY!)
 
   const { data: turn, error: turnError } = await service
     .from('turns')

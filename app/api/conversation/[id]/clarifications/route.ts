@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { applyGraphPatch, emptyGraph, type NarrativeGraph } from '@/lib/graph'
 import { decrypt, encrypt } from '@/lib/crypto'
+import { ClarificationAnswerSchema } from '@/lib/schemas'
 
 export async function GET(
   req: NextRequest,
@@ -41,11 +42,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: conversationId } = await params
-  const { clarificationId, answer } = await req.json()
 
-  if (!clarificationId || !answer?.trim()) {
-    return NextResponse.json({ error: 'Missing clarificationId or answer' }, { status: 400 })
+  const parsed = ClarificationAnswerSchema.safeParse(await req.json())
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
   }
+  const { clarificationId, answer } = parsed.data
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -77,7 +79,7 @@ export async function PATCH(
   const now = new Date().toISOString()
   await service
     .from('clarifications')
-    .update({ status: 'answered', answer: answer.trim(), answered_at: now })
+    .update({ status: 'answered', answer, answered_at: now })
     .eq('id', clarificationId)
 
   // Load user's narrative graph and apply patch
@@ -95,7 +97,7 @@ export async function PATCH(
     clarification.entity_type,
     clarification.entity_key,
     clarification.field,
-    answer.trim()
+    answer
   )
   const newVersion = (narrativeRow?.graph_version ?? 0) + 1
 

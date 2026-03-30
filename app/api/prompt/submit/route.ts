@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { encrypt } from '@/lib/crypto'
 import { inngest } from '@/inngest/client'
+import { PromptSubmitSchema } from '@/lib/schemas'
 
 // Used for in-app / web prompt submission (e.g. onboarding first prompt).
 // Creates the conversation, biographer turn, and user turn, then triggers enrichment.
@@ -11,10 +12,11 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { promptText, responseText, promptCategory } = await request.json()
-  if (!promptText || !responseText?.trim()) {
-    return NextResponse.json({ error: 'Missing prompt or response' }, { status: 400 })
+  const parsed = PromptSubmitSchema.safeParse(await request.json())
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
   }
+  const { promptText, responseText, promptCategory } = parsed.data
 
   const service = createServiceClient()
 
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
   }
 
   // User turn (encrypted)
-  const encryptedResponse = encrypt(responseText.trim(), process.env.MEMORY_ENCRYPTION_KEY!)
+  const encryptedResponse = encrypt(responseText, process.env.MEMORY_ENCRYPTION_KEY!)
 
   const { data: userTurn, error: userTurnError } = await service
     .from('turns')
