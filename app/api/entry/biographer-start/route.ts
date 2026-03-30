@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { claudeComplete } from '@/lib/ai'
+import { claudeComplete, logTokenUsage, getClaudeClient } from '@/lib/ai'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -23,7 +23,8 @@ export async function POST(request: NextRequest) {
 
   const name = profile?.display_name ?? ''
 
-  const question = await claudeComplete({
+  const { model: claudeModel } = getClaudeClient()
+  const result = await claudeComplete({
     system: `You are a thoughtful biographer opening a personal memoir conversation on a topic the person has chosen. \
 Write ONE warm, specific opening question that invites them to start telling their story. \
 One question only. Two sentences maximum. Do not start with "I". \
@@ -33,7 +34,7 @@ Feel like an invitation to share something real, not a form field or interview p
     temperature: 0.7,
   })
 
-  const trimmedQuestion = question.trim()
+  const trimmedQuestion = result.text.trim()
 
   const { data: conversation, error: convError } = await service
     .from('conversations')
@@ -51,6 +52,16 @@ Feel like an invitation to share something real, not a form field or interview p
   if (convError || !conversation) {
     return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
   }
+
+  void logTokenUsage(service, {
+    userId: user.id,
+    conversationId: conversation.id,
+    inngestFunction: 'biographer-start',
+    model: claudeModel,
+    inputTokens: result.inputTokens,
+    outputTokens: result.outputTokens,
+    purpose: 'biographer opening question',
+  })
 
   const { error: turnError } = await service
     .from('turns')
