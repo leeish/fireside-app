@@ -2,20 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { encrypt } from '@/lib/crypto'
 import { inngest } from '@/inngest/client'
+import { EntryFreeSchema } from '@/lib/schemas'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { responseText, topic } = await request.json()
-  if (!responseText?.trim()) {
-    return NextResponse.json({ error: 'Missing entry text' }, { status: 400 })
+  const parsed = EntryFreeSchema.safeParse(await request.json())
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
   }
+  const { responseText, topic } = parsed.data
 
   const service = createServiceClient()
 
-  const topicLabel = topic?.trim() || responseText.trim().slice(0, 80)
+  const topicLabel = topic || responseText.slice(0, 80)
 
   const { data: conversation, error: convError } = await service
     .from('conversations')
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
       conversation_id: conversation.id,
       user_id: user.id,
       role: 'user',
-      content: encrypt(responseText.trim(), process.env.MEMORY_ENCRYPTION_KEY!),
+      content: encrypt(responseText, process.env.MEMORY_ENCRYPTION_KEY!),
       channel: 'web',
       processed: false,
     })

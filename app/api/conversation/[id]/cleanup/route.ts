@@ -2,14 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { claudeComplete, logTokenUsage, getClaudeClient } from '@/lib/ai'
+import { CleanupSchema } from '@/lib/schemas'
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: conversationId } = await params
-  const body = await req.json().catch(() => ({}))
-  const force = body.force === true
+  const parsed = CleanupSchema.safeParse(await req.json().catch(() => ({})))
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
+  }
+  const force = parsed.data.force === true
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

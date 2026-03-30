@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { inngest } from '@/inngest/client'
+import { PromptEmailSchema } from '@/lib/schemas'
 
 // Manually triggers an email delivery for testing / admin use.
 // Creates a queued_prompt row, then fires fireside/prompt.deliver immediately.
@@ -10,8 +11,11 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { promptText, promptCategory } = await request.json()
-  if (!promptText) return NextResponse.json({ error: 'Missing promptText' }, { status: 400 })
+  const parsed = PromptEmailSchema.safeParse(await request.json())
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
+  }
+  const { promptText, promptCategory } = parsed.data
 
   const service = createServiceClient()
 

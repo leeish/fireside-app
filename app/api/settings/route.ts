@@ -1,23 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { SettingsUpdateSchema } from '@/lib/schemas'
 
 export async function PATCH(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await request.json()
-  const allowed = ['display_name', 'cadence', 'is_active'] as const
-  type AllowedKey = typeof allowed[number]
-
-  const updates: Partial<Record<AllowedKey, unknown>> = {}
-  for (const key of allowed) {
-    if (key in body) updates[key] = body[key]
+  const parsed = SettingsUpdateSchema.safeParse(await request.json())
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
-  }
+  const { display_name, cadence, is_active } = parsed.data
+  const updates: Record<string, unknown> = {}
+  if (display_name !== undefined) updates.display_name = display_name
+  if (cadence !== undefined) updates.cadence = cadence
+  if (is_active !== undefined) updates.is_active = is_active
 
   const service = createServiceClient()
   const { error } = await service

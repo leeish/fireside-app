@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { getAIClient } from '@/lib/ai'
+import { TitleGenerateSchema, TitleSaveSchema } from '@/lib/schemas'
 
 const STYLE_INSTRUCTIONS: Record<string, string> = {
   evocative: 'Evocative and emotional — captures the heart of the memory with feeling.',
@@ -16,8 +17,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: conversationId } = await params
-  const body = await req.json().catch(() => ({}))
-  const style: string = body.style ?? 'evocative'
+  const parsed = TitleGenerateSchema.safeParse(await req.json().catch(() => ({})))
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
+  }
+  const { style } = parsed.data
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -52,7 +56,7 @@ export async function POST(
     .map(t => t.role === 'biographer' ? `Q: ${t.content}` : `A: ${t.content}`)
     .join('\n\n')
 
-  const styleNote = STYLE_INSTRUCTIONS[style] ?? STYLE_INSTRUCTIONS.evocative
+  const styleNote = STYLE_INSTRUCTIONS[style]
 
   const { client, model } = getAIClient()
   const completion = await client.chat.completions.create({
@@ -85,8 +89,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: conversationId } = await params
-  const { title } = await req.json()
-  if (!title?.trim()) return NextResponse.json({ error: 'Title required' }, { status: 400 })
+  const parsed = TitleSaveSchema.safeParse(await req.json())
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
+  }
+  const { title } = parsed.data
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -96,7 +103,7 @@ export async function PATCH(
 
   await service
     .from('conversations')
-    .update({ topic: title.trim() })
+    .update({ topic: title })
     .eq('id', conversationId)
     .eq('user_id', user.id)
 

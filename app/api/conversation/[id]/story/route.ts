@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { claudeComplete, logTokenUsage, getClaudeClient } from '@/lib/ai'
+import { StoryGenerateSchema, StorySaveSchema } from '@/lib/schemas'
 
 const INTENSITY_PROMPTS = {
   light: `Lightly reshape the following personal account into a journal entry. \
@@ -30,11 +31,11 @@ export async function POST(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const body = await req.json()
-  const intensity: 'light' | 'medium' | 'full' = body.intensity ?? 'medium'
-  if (!INTENSITY_PROMPTS[intensity]) {
-    return NextResponse.json({ error: 'Invalid intensity' }, { status: 400 })
+  const parsed = StoryGenerateSchema.safeParse(await req.json().catch(() => ({})))
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
   }
+  const { intensity } = parsed.data
 
   const service = createServiceClient()
 
@@ -130,8 +131,11 @@ export async function PUT(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { content } = await req.json()
-  if (typeof content !== 'string') return NextResponse.json({ error: 'Missing content' }, { status: 400 })
+  const parsed = StorySaveSchema.safeParse(await req.json())
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
+  }
+  const { content } = parsed.data
 
   const service = createServiceClient()
 

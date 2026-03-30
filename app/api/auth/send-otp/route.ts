@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { SendOTPSchema } from '@/lib/schemas'
 
 export async function POST(request: NextRequest) {
-  const { email } = await request.json()
-  if (!email) return NextResponse.json({ error: 'Missing email' }, { status: 400 })
+  const body = await request.json()
+  const parsed = SendOTPSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
+  }
+  const { email } = parsed.data
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
