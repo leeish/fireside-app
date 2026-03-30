@@ -51,7 +51,7 @@ export const selectNextPrompt = inngest.createFunction(
     // Load user
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, email, display_name, cadence, onboarding_profile')
+      .select('id, email, display_name, cadence, onboarding_profile, next_prompt_delivery_date')
       .eq('id', userId)
       .single()
 
@@ -259,11 +259,23 @@ Return ONLY valid JSON, no markdown, no explanation:
     const deliverAt = new Date()
     deliverAt.setDate(deliverAt.getDate() + deliverInDays)
 
+    // Check if delivery is already scheduled in the future
+    if (user.next_prompt_delivery_date && new Date(user.next_prompt_delivery_date) > deliverAt) {
+      return { userId, skipped: 'delivery already scheduled' }
+    }
+
+    // Schedule delivery and update user's next delivery timestamp
     await inngest.send({
       name: 'fireside/prompt.deliver',
       data: { userId, queuedPromptId: qp.id },
       ts: deliverAt.getTime(),
     })
+
+    // Track the scheduled delivery date
+    await supabase
+      .from('users')
+      .update({ next_prompt_delivery_date: deliverAt.toISOString() })
+      .eq('id', userId)
 
     return {
       userId,
