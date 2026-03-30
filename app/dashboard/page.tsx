@@ -30,7 +30,7 @@ export default async function DashboardPage() {
       .limit(5),
     supabase
       .from('queued_prompts')
-      .select('id, question, question_type, delivery_state')
+      .select('id, question, question_type, delivery_state, reasoning')
       .eq('user_id', user.id)
       .in('delivery_state', ['queued', 'in_app_seen'])
       .order('created_at', { ascending: false })
@@ -108,6 +108,7 @@ export default async function DashboardPage() {
             <PromptCard
               promptId={queuedPrompt.id}
               question={queuedPrompt.question}
+              reasoning={queuedPrompt.reasoning}
               linkedConversationId={linkedConversation?.id}
             />
           )}

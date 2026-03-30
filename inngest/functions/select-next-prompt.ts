@@ -394,6 +394,12 @@ Return ONLY valid JSON, no markdown, no explanation:
 
     if (!question) throw new Error('Failed to generate question')
 
+    // Build user-friendly reasoning
+    const selectedCandidate = candidates.find(c => c.threadId === selectedThreadId)
+    const reasoning = selectedCandidate
+      ? `Selected: ${selectedCandidate.description}`
+      : 'Automatic selection based on conversation history'
+
     // Insert queued_prompt using Claude's actual selection
     const { data: qp, error: qpError } = await supabase
       .from('queued_prompts')
@@ -404,6 +410,7 @@ Return ONLY valid JSON, no markdown, no explanation:
         question_type: selectedQuestionType,
         delivery_state: 'queued',
         model_used: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
+        reasoning,
       })
       .select('id')
       .single()
