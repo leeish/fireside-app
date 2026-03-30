@@ -84,7 +84,7 @@ export const StoryGenerateSchema = z.object({
 export type StoryGenerateInput = z.infer<typeof StoryGenerateSchema>
 
 export const StorySaveSchema = z.object({
-  content: z.string({ required_error: 'Content is required' }),
+  content: z.string({ error: 'Content is required' }),
 })
 export type StorySaveInput = z.infer<typeof StorySaveSchema>
 
