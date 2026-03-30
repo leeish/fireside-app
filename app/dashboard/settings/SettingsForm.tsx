@@ -153,7 +153,7 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
           ))}
         </div>
 
-        <div className="flex items-center justify-between pt-4 border-t border-border/40">
+        <div className="flex items-center justify-between gap-4 pt-4 border-t border-border/40">
           <div>
             <p className="text-sm font-medium text-foreground">Pause deliveries</p>
             <p className="text-xs text-muted-fg mt-0.5">No prompts will be sent while paused</p>
@@ -161,7 +161,7 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
           <button
             type="button"
             onClick={() => setActive(a => !a)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
+            className={`relative inline-flex shrink-0 h-6 w-11 items-center rounded-full transition-colors duration-300 ${
               !active ? 'bg-primary' : 'bg-border'
             }`}
           >
@@ -180,7 +180,7 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
         style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
       >
         <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Writing</h2>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-foreground">Autosave drafts</p>
             <p className="text-xs text-muted-fg mt-0.5">Automatically saves your free entries every 15 seconds while you write</p>
@@ -188,7 +188,7 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
           <button
             type="button"
             onClick={toggleAutosave}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${
+            className={`relative inline-flex shrink-0 h-6 w-11 items-center rounded-full transition-colors duration-300 ${
               autosave ? 'bg-primary' : 'bg-border'
             }`}
           >
