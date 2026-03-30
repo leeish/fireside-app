@@ -1,7 +1,7 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt, encrypt } from '@/lib/crypto'
-import { getAIClient } from '@/lib/ai'
+import { getAIClient, logTokenUsage } from '@/lib/ai'
 import { mergeExtraction, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 
 type ChatSettleEvent = {
@@ -64,6 +64,16 @@ export const chatSettle = inngest.createFunction(
 
     const raw = completion.choices[0].message.content ?? '{}'
     const extraction: ExtractionResult = JSON.parse(raw)
+
+    await logTokenUsage(supabase, {
+      userId,
+      conversationId,
+      inngestFunction: 'chat-settle',
+      model,
+      inputTokens: completion.usage?.prompt_tokens ?? 0,
+      outputTokens: completion.usage?.completion_tokens ?? 0,
+      purpose: 'conversation extraction',
+    })
 
     // Load or initialize narrative graph
     const { data: narrativeRow } = await supabase

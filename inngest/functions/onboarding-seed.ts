@@ -1,6 +1,6 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
-import { getAIClient } from '@/lib/ai'
+import { getAIClient, logTokenUsage } from '@/lib/ai'
 import { encrypt } from '@/lib/crypto'
 import { emptyGraph, mergeExtraction, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 
@@ -55,6 +55,15 @@ export const onboardingSeed = inngest.createFunction(
 
     const raw = completion.choices[0].message.content ?? '{}'
     const extraction: ExtractionResult = JSON.parse(raw)
+
+    await logTokenUsage(supabase, {
+      userId,
+      inngestFunction: 'onboarding-seed',
+      model,
+      inputTokens: completion.usage?.prompt_tokens ?? 0,
+      outputTokens: completion.usage?.completion_tokens ?? 0,
+      purpose: 'onboarding extraction',
+    })
 
     // Initialize graph with display name
     const baseGraph: NarrativeGraph = emptyGraph(displayName)

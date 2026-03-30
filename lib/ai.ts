@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import Anthropic from '@anthropic-ai/sdk'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 // Mini: high-frequency, speed-sensitive calls (extraction, wrap assessment)
 // Claude: high-stakes calls where quality compounds (prompt generation, graph synthesis)
@@ -32,7 +33,7 @@ export async function claudeComplete({
   user: string
   temperature?: number
   maxTokens?: number
-}): Promise<string> {
+}): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
   const { client, model } = getClaudeClient()
   const message = await client.messages.create({
     model,
@@ -43,7 +44,11 @@ export async function claudeComplete({
   })
   const block = message.content[0]
   if (block.type !== 'text') throw new Error('Unexpected Claude response type')
-  return stripFences(block.text)
+  return {
+    text: stripFences(block.text),
+    inputTokens: message.usage.input_tokens,
+    outputTokens: message.usage.output_tokens,
+  }
 }
 
 function stripFences(raw: string): string {
@@ -64,7 +69,7 @@ export async function chatComplete({
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
   temperature?: number
   maxTokens?: number
-}): Promise<string> {
+}): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
   const vendor = process.env.CHAT_VENDOR ?? 'anthropic'
   const model = process.env.CHAT_MODEL ?? 'claude-haiku-4-5-20251001'
 
@@ -93,7 +98,11 @@ export async function chatComplete({
     })
     const block = message.content[0]
     if (block.type !== 'text') throw new Error('Unexpected Claude response type')
-    return block.text
+    return {
+      text: block.text,
+      inputTokens: message.usage.input_tokens,
+      outputTokens: message.usage.output_tokens,
+    }
   } else {
     // OpenAI — use json_object response format so output is always parseable
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -107,6 +116,37 @@ export async function chatComplete({
         ...messages,
       ],
     })
-    return completion.choices[0].message.content ?? ''
+    return {
+      text: completion.choices[0].message.content ?? '',
+      inputTokens: completion.usage?.prompt_tokens ?? 0,
+      outputTokens: completion.usage?.completion_tokens ?? 0,
+    }
+  }
+}
+
+export async function logTokenUsage(
+  supabase: SupabaseClient,
+  params: {
+    userId: string
+    conversationId?: string | null
+    inngestFunction: string
+    model: string
+    inputTokens: number
+    outputTokens: number
+    purpose: string
+  }
+): Promise<void> {
+  try {
+    await supabase.from('token_usage').insert({
+      user_id: params.userId,
+      conversation_id: params.conversationId ?? null,
+      inngest_function: params.inngestFunction,
+      model: params.model,
+      input_tokens: params.inputTokens,
+      output_tokens: params.outputTokens,
+      purpose: params.purpose,
+    })
+  } catch {
+    // Never throw — token logging must not fail a function
   }
 }

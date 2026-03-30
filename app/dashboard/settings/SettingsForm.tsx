@@ -3,11 +3,26 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
+type TokenUsageRow = {
+  id: string
+  inngest_function: string
+  model: string
+  input_tokens: number
+  output_tokens: number
+  purpose: string
+  created_at: string
+  conversation_id: string | null
+  cost: number
+}
+
 type Props = {
   displayName: string
   email: string
   cadence: string
   isActive: boolean
+  recentUsage: TokenUsageRow[]
+  monthTotalTokens: number
+  monthTotalCost: number
 }
 
 const CADENCE_OPTIONS = [
@@ -16,7 +31,7 @@ const CADENCE_OPTIONS = [
   { value: 'daily', label: 'Daily', description: 'A prompt every day', premium: true },
 ]
 
-export default function SettingsForm({ displayName, email, cadence, isActive }: Props) {
+export default function SettingsForm({ displayName, email, cadence, isActive, recentUsage, monthTotalTokens, monthTotalCost }: Props) {
   const router = useRouter()
   const [name, setName] = useState(displayName)
   const [selectedCadence, setSelectedCadence] = useState(cadence)
@@ -199,6 +214,42 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
             />
           </button>
         </div>
+      </section>
+
+      {/* Usage */}
+      <section
+        className="bg-card rounded-[2rem] border border-border/50 p-7 space-y-4"
+        style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Usage</h2>
+          <p className="text-xs text-muted-fg">
+            This month: <span className="text-foreground font-medium">{monthTotalTokens.toLocaleString()} tokens</span>
+            {' · '}
+            <span className="text-foreground font-medium">${monthTotalCost.toFixed(4)}</span>
+          </p>
+        </div>
+        {recentUsage.length === 0 ? (
+          <p className="text-xs text-muted-fg italic">No usage recorded yet.</p>
+        ) : (
+          <div className="space-y-1">
+            {recentUsage.map(row => (
+              <div key={row.id} className="flex items-center justify-between gap-4 py-1.5 border-b border-border/30 last:border-0">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-foreground truncate">{row.purpose}</p>
+                  <p className="text-xs text-muted-fg/70">{row.inngest_function} · {row.model}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs text-foreground">{(row.input_tokens + row.output_tokens).toLocaleString()} tok</p>
+                  <p className="text-xs text-muted-fg/70">${row.cost.toFixed(5)}</p>
+                </div>
+                <p className="text-xs text-muted-fg/50 shrink-0 hidden sm:block">
+                  {new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Subscription */}

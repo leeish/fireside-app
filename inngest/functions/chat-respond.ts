@@ -1,7 +1,7 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt, encrypt } from '@/lib/crypto'
-import { chatComplete } from '@/lib/ai'
+import { chatComplete, logTokenUsage } from '@/lib/ai'
 
 type ChatRespondEvent = {
   data: {
@@ -76,11 +76,22 @@ export const chatRespond = inngest.createFunction(
       ? `${CHAT_SYSTEM}\n\nBackground on this person: ${rollingSummary}`
       : CHAT_SYSTEM
 
-    const raw = await chatComplete({
+    const { text: raw, inputTokens, outputTokens } = await chatComplete({
       system: systemPrompt,
       messages: chatMessages,
       temperature: 0.7,
       maxTokens: 300,
+    })
+
+    const chatModel = process.env.CHAT_MODEL ?? 'claude-haiku-4-5-20251001'
+    await logTokenUsage(supabase, {
+      userId,
+      conversationId,
+      inngestFunction: 'chat-respond',
+      model: chatModel,
+      inputTokens,
+      outputTokens,
+      purpose: 'biographer response',
     })
 
     const parsed = JSON.parse(raw) as { response: string; wrap?: boolean }

@@ -1,7 +1,7 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt, encrypt } from '@/lib/crypto'
-import { getAIClient } from '@/lib/ai'
+import { getAIClient, logTokenUsage } from '@/lib/ai'
 import { mergeExtraction, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 
 type EnrichEntryEvent = { data: { turnId: string } }
@@ -68,6 +68,16 @@ export const enrichEntry = inngest.createFunction(
 
     const raw = completion.choices[0].message.content ?? '{}'
     const extraction: ExtractionResult = JSON.parse(raw)
+
+    await logTokenUsage(supabase, {
+      userId: turn.user_id,
+      conversationId: turn.conversation_id,
+      inngestFunction: 'enrich-entry',
+      model,
+      inputTokens: completion.usage?.prompt_tokens ?? 0,
+      outputTokens: completion.usage?.completion_tokens ?? 0,
+      purpose: 'entry extraction',
+    })
 
     // Load or initialize the user's narrative graph
     const { data: narrativeRow } = await supabase

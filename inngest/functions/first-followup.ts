@@ -1,7 +1,7 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { claudeComplete } from '@/lib/ai'
+import { claudeComplete, logTokenUsage, getClaudeClient } from '@/lib/ai'
 
 type FirstFollowupEvent = { data: { userId: string; turnId: string } }
 
@@ -78,14 +78,26 @@ export const firstFollowup = inngest.createFunction(
 
     const userContent = `The opening prompt they responded to: "${questionText}"\n\nTheir first entry:\n${responseText}\n\nWrite the follow-up question now.`
 
+    const { model: claudeModel } = getClaudeClient()
+
     // Generate 3 candidates in parallel using Claude
-    const [c1, c2, c3] = await Promise.all([
+    const candidateResults = await Promise.all([
       claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300 }),
       claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300 }),
       claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300 }),
     ])
 
-    const candidates = [c1, c2, c3].filter(Boolean)
+    await Promise.all(candidateResults.map(r => logTokenUsage(supabase, {
+      userId,
+      conversationId: turn.conversation_id,
+      inngestFunction: 'first-followup',
+      model: claudeModel,
+      inputTokens: r.inputTokens,
+      outputTokens: r.outputTokens,
+      purpose: 'first followup quality check',
+    })))
+
+    const candidates = candidateResults.map(r => r.text).filter(Boolean)
     if (candidates.length === 0) throw new Error('Failed to generate any candidate questions')
 
     // Selection pass — pick the best one
@@ -93,13 +105,22 @@ export const firstFollowup = inngest.createFunction(
 
     if (candidates.length > 1) {
       try {
-        const raw = await claudeComplete({
+        const selectorResult = await claudeComplete({
           system: SELECTOR_SYSTEM + '\n\nReturn valid JSON only.',
           user: `User's first entry:\n${responseText}\n\nCandidates:\n0: ${candidates[0]}\n\n1: ${candidates[1]}\n\n2: ${candidates[2] ?? '(none)'}`,
           temperature: 0,
           maxTokens: 200,
         })
-        const parsed = JSON.parse(raw)
+        await logTokenUsage(supabase, {
+          userId,
+          conversationId: turn.conversation_id,
+          inngestFunction: 'first-followup',
+          model: claudeModel,
+          inputTokens: selectorResult.inputTokens,
+          outputTokens: selectorResult.outputTokens,
+          purpose: 'first followup generation',
+        })
+        const parsed = JSON.parse(selectorResult.text)
         const idx = Number(parsed.selected)
         if (candidates[idx]) question = candidates[idx]
       } catch {

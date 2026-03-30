@@ -1,6 +1,6 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
-import { claudeComplete } from '@/lib/ai'
+import { claudeComplete, logTokenUsage, getClaudeClient } from '@/lib/ai'
 import { decrypt, encrypt } from '@/lib/crypto'
 import { buildSystemPrompt } from '@/lib/craft-system'
 import { synthesizeGraph } from '@/lib/synthesize-graph'
@@ -199,15 +199,17 @@ Pass if: specific to this person, one question, opens something rather than clos
 async function qualityCheck(
   question: string,
   graphContext: string,
+  onUsage?: (inputTokens: number, outputTokens: number) => void,
 ): Promise<{ pass: boolean; reason: string }> {
   try {
-    const raw = await claudeComplete({
+    const result = await claudeComplete({
       system: QUALITY_CHECK_PROMPT + '\n\nReturn valid JSON only: {"pass": true/false, "reason": "..."}',
       user: `Person context: ${graphContext}\n\nQuestion to evaluate: "${question}"`,
       temperature: 0,
       maxTokens: 200,
     })
-    return JSON.parse(raw)
+    onUsage?.(result.inputTokens, result.outputTokens)
+    return JSON.parse(result.text)
   } catch {
     return { pass: false, reason: 'failed to parse quality check response' }
   }
@@ -255,9 +257,21 @@ export const selectNextPrompt = inngest.createFunction(
 
     // Synthesize fresh biographer notes right before generation — this is the only
     // place rolling_summary is actually needed, so we defer synthesis until here.
+    const { model: claudeModel } = getClaudeClient()
+
     if (graph.total_entries > 0) {
-      const freshSummary = await synthesizeGraph(graph)
+      const synthResult = await synthesizeGraph(graph)
+      const freshSummary = synthResult.text
       graph.rolling_summary = freshSummary
+
+      await logTokenUsage(supabase, {
+        userId,
+        inngestFunction: 'select-next-prompt',
+        model: claudeModel,
+        inputTokens: synthResult.inputTokens,
+        outputTokens: synthResult.outputTokens,
+        purpose: 'graph synthesis',
+      })
 
       // Persist so chat-respond can use it as background context
       await supabase
@@ -331,7 +345,7 @@ Return ONLY valid JSON, no markdown, no explanation:
     let selectedQuestionType = candidates[0].questionType
 
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const raw = await claudeComplete({
+      const genResult = await claudeComplete({
         system: systemPrompt,
         user: attempt === 1
           ? taskInstruction
@@ -340,8 +354,17 @@ Return ONLY valid JSON, no markdown, no explanation:
         maxTokens: 400,
       })
 
+      await logTokenUsage(supabase, {
+        userId,
+        inngestFunction: 'select-next-prompt',
+        model: claudeModel,
+        inputTokens: genResult.inputTokens,
+        outputTokens: genResult.outputTokens,
+        purpose: 'prompt selection',
+      })
+
       try {
-        const parsed = JSON.parse(raw)
+        const parsed = JSON.parse(genResult.text)
         question = parsed.question ?? ''
 
         // Validate Claude's thread selection against the candidate list
@@ -359,7 +382,9 @@ Return ONLY valid JSON, no markdown, no explanation:
 
       if (!question) continue
 
-      const check = await qualityCheck(question, graphContext)
+      const check = await qualityCheck(question, graphContext, (inputTokens, outputTokens) => {
+        void logTokenUsage(supabase, { userId, inngestFunction: 'select-next-prompt', model: claudeModel, inputTokens, outputTokens, purpose: 'quality check' })
+      })
       if (check.pass) break
 
       if (attempt === 2) {
