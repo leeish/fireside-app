@@ -12,24 +12,35 @@ function getWeekLabel(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function aggregateByWeek(rows: { created_at: string; input_tokens: number; output_tokens: number }[]) {
-  const buckets: Record<string, { tokens: number; date: Date }> = {}
+type PricingRow = { model: string; input_per_1m: number; output_per_1m: number }
+
+function getCost(inputTokens: number, outputTokens: number, model: string, pricing: PricingRow[]): number {
+  const p = pricing.find(r => r.model === model)
+  if (!p) return 0
+  return (inputTokens / 1_000_000 * Number(p.input_per_1m)) + (outputTokens / 1_000_000 * Number(p.output_per_1m))
+}
+
+function aggregateByWeek(
+  rows: { created_at: string; input_tokens: number; output_tokens: number; model: string }[],
+  pricing: PricingRow[],
+) {
+  const buckets: Record<string, { tokens: number; cost: number; date: Date }> = {}
 
   for (const row of rows) {
     const d = new Date(row.created_at)
-    // Week start = Sunday
     const day = d.getDay()
     const weekStart = new Date(d)
     weekStart.setDate(d.getDate() - day)
     weekStart.setHours(0, 0, 0, 0)
     const key = weekStart.toISOString()
-    if (!buckets[key]) buckets[key] = { tokens: 0, date: weekStart }
+    if (!buckets[key]) buckets[key] = { tokens: 0, cost: 0, date: weekStart }
     buckets[key].tokens += row.input_tokens + row.output_tokens
+    buckets[key].cost += getCost(row.input_tokens, row.output_tokens, row.model, pricing)
   }
 
   return Object.values(buckets)
     .sort((a, b) => a.date.getTime() - b.date.getTime())
-    .map(b => ({ week: getWeekLabel(b.date), tokens: b.tokens }))
+    .map(b => ({ week: getWeekLabel(b.date), tokens: b.tokens, cost: parseFloat(b.cost.toFixed(4)) }))
 }
 
 export default async function UsagePage({ searchParams }: { searchParams: SearchParams }) {
@@ -49,14 +60,26 @@ export default async function UsagePage({ searchParams }: { searchParams: Search
   const threeMonthsAgo = new Date()
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
 
+  // Pricing — global reference data, no user filter
+  const { data: pricingRows } = await supabase
+    .from('model_pricing')
+    .select('model, input_per_1m, output_per_1m')
+    .is('active_to', null)
+
+  const pricing: PricingRow[] = (pricingRows ?? []).map(r => ({
+    model: r.model,
+    input_per_1m: Number(r.input_per_1m),
+    output_per_1m: Number(r.output_per_1m),
+  }))
+
   // Chart data — last 3 months, lightweight columns only
   const { data: chartRows } = await supabase
     .from('token_usage')
-    .select('created_at, input_tokens, output_tokens')
+    .select('created_at, input_tokens, output_tokens, model')
     .eq('user_id', user.id)
     .gte('created_at', threeMonthsAgo.toISOString())
 
-  const weeklyData = aggregateByWeek(chartRows ?? [])
+  const weeklyData = aggregateByWeek(chartRows ?? [], pricing)
 
   // Table data — paginated + filtered
   const offset = (page - 1) * PAGE_SIZE
@@ -91,7 +114,7 @@ export default async function UsagePage({ searchParams }: { searchParams: Search
         className="bg-card rounded-[2rem] border border-border/50 p-7 mb-5"
         style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
       >
-        <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest mb-4">Weekly tokens — last 3 months</h2>
+        <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest mb-4">Weekly usage — last 3 months</h2>
         <UsageChart data={weeklyData} />
       </section>
 
@@ -103,7 +126,7 @@ export default async function UsagePage({ searchParams }: { searchParams: Search
         <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest mb-4">All records</h2>
         <Suspense>
           <UsageTable
-            rows={tableRows ?? []}
+            rows={(tableRows ?? []).map(r => ({ ...r, cost: getCost(r.input_tokens, r.output_tokens, r.model, pricing) }))}
             totalCount={count ?? 0}
             page={page}
             pageSize={PAGE_SIZE}

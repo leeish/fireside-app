@@ -11,6 +11,7 @@ type TokenUsageRow = {
   purpose: string
   input_tokens: number
   output_tokens: number
+  cost: number
 }
 
 type Props = {
@@ -30,6 +31,7 @@ const COLUMNS: { key: string; label: string; sortable: boolean }[] = [
   { key: 'purpose', label: 'Purpose', sortable: false },
   { key: 'input_tokens', label: 'Input', sortable: true },
   { key: 'output_tokens', label: 'Output', sortable: true },
+  { key: 'cost', label: 'Cost', sortable: false },
 ]
 
 export default function UsageTable({ rows, totalCount, page, pageSize, sort, dir, filters }: Props) {
@@ -118,7 +120,7 @@ export default function UsageTable({ rows, totalCount, page, pageSize, sort, dir
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-fg italic">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-fg italic">
                   No usage records found.
                 </td>
               </tr>
@@ -133,6 +135,7 @@ export default function UsageTable({ rows, totalCount, page, pageSize, sort, dir
                   <td className="px-4 py-3 text-xs text-muted-fg">{row.purpose}</td>
                   <td className="px-4 py-3 text-xs text-foreground text-right">{row.input_tokens.toLocaleString()}</td>
                   <td className="px-4 py-3 text-xs text-foreground text-right">{row.output_tokens.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-xs text-muted-fg text-right">${row.cost.toFixed(5)}</td>
                 </tr>
               ))
             )}
