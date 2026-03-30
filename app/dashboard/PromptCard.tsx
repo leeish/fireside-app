@@ -7,11 +7,12 @@ import Link from 'next/link'
 type Props = {
   promptId: string
   question: string
+  linkedConversationId?: string
 }
 
 const SUPPRESS_MS = 5 * 60 * 1000 // 5 minutes
 
-export default function PromptCard({ promptId, question }: Props) {
+export default function PromptCard({ promptId, question, linkedConversationId }: Props) {
   const router = useRouter()
   const [visible, setVisible] = useState(false)
   const [skipping, setSkipping] = useState(false)
@@ -94,11 +95,11 @@ export default function PromptCard({ promptId, question }: Props) {
         </p>
         <div className="flex items-center gap-4">
           <Link
-            href={`/dashboard/answer/${promptId}`}
+            href={linkedConversationId ? `/dashboard/conversation/${linkedConversationId}` : `/dashboard/answer/${promptId}`}
             className="inline-flex items-center h-12 px-8 bg-primary text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 transition-all duration-300"
             style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.25)' }}
           >
-            Answer
+            {linkedConversationId ? 'Continue' : 'Answer'}
           </Link>
           <button
             onClick={handleSkip}

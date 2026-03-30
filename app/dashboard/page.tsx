@@ -60,6 +60,13 @@ export default async function DashboardPage() {
   const hasConversations = conversations && conversations.length > 0
   const isProcessing = !!unprocessedTurn && !queuedPrompt
 
+  const linkedConversation = queuedPrompt
+    ? conversations?.find(c =>
+        c.topic === queuedPrompt.question &&
+        (c.status === 'active' || c.status === 'wrap_offered')
+      )
+    : undefined
+
   return (
     <div className="max-w-2xl mx-auto px-4 pt-8 pb-4">
 
@@ -98,7 +105,11 @@ export default async function DashboardPage() {
 
           {/* Queued prompt waiting for a response */}
           {queuedPrompt && (
-            <PromptCard promptId={queuedPrompt.id} question={queuedPrompt.question} />
+            <PromptCard
+              promptId={queuedPrompt.id}
+              question={queuedPrompt.question}
+              linkedConversationId={linkedConversation?.id}
+            />
           )}
 
           {/* Conversation list */}
@@ -111,7 +122,7 @@ export default async function DashboardPage() {
                 View all &rarr;
               </Link>
             </div>
-            {conversations!.map(conv => {
+            {conversations!.filter(c => c.id !== linkedConversation?.id).map(conv => {
               const date = new Date(conv.opened_at).toLocaleDateString('en-US', {
                 month: 'short', day: 'numeric', year: 'numeric',
               })
