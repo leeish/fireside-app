@@ -2,7 +2,7 @@ import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { getAIClient } from '@/lib/ai'
-import { mergeExtraction, emptyGraph, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
+import { mergeExtraction, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 
 type EnrichEntryEvent = { data: { turnId: string } }
 
@@ -125,6 +125,21 @@ export const enrichEntry = inngest.createFunction(
           themes: extraction.themes ?? [],
           settled_at: now,
         })
+    }
+
+    // Detect completeness gaps and store pending clarifications
+    const gaps = findCompletenessGaps(updatedGraph)
+    if (gaps.length > 0) {
+      const clarifications = gaps.map(gap => ({
+        user_id: turn.user_id,
+        conversation_id: turn.conversation_id,
+        entity_type: gap.entity_type,
+        entity_key: gap.entity_key,
+        field: gap.field,
+        question: gap.question,
+        status: 'pending',
+      }))
+      await supabase.from('clarifications').insert(clarifications)
     }
 
     // First entry gets a dedicated follow-up that reads the actual entry and continues it directly.

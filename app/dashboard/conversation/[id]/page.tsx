@@ -49,6 +49,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
 
   // Fetch entry only when settled (needed for cleanup/story tabs)
   let entry = null
+  let clarificationsCount = 0
   if (isSettled) {
     const { data } = await service
       .from('entries')
@@ -56,6 +57,14 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
       .eq('conversation_id', id)
       .maybeSingle()
     entry = data
+
+    // Query pending clarifications count
+    const { data: clarifications } = await service
+      .from('clarifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('conversation_id', id)
+      .eq('status', 'pending')
+    clarificationsCount = clarifications?.length ?? 0
   }
 
   return (
@@ -75,6 +84,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
           turns={decryptedTurns}
           entry={entry}
           topic={conversation.topic}
+          clarificationsCount={clarificationsCount}
         />
       ) : (
         <ConversationClient

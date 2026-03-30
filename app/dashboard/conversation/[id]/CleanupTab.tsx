@@ -10,9 +10,13 @@ type Entry = {
 export default function CleanupTab({
   conversationId,
   entry,
+  onSwitchTab,
+  clarificationsCount = 0,
 }: {
   conversationId: string
   entry: Entry
+  onSwitchTab?: (tab: string) => void
+  clarificationsCount?: number
 }) {
   const [content, setContent] = useState(entry?.cleaned_content ?? '')
   const [generating, setGenerating] = useState(false)
@@ -38,6 +42,19 @@ export default function CleanupTab({
 
   return (
     <div className="space-y-6">
+      {clarificationsCount > 0 && (
+        <div className="border border-primary/20 bg-primary/5 rounded-2xl p-4">
+          <p className="text-sm text-foreground">
+            You have {clarificationsCount} clarification{clarificationsCount > 1 ? 's' : ''} pending.{' '}
+            <button
+              onClick={() => onSwitchTab?.('clarify')}
+              className="font-semibold text-primary hover:text-primary/80 transition-colors"
+            >
+              Review now
+            </button>
+          </p>
+        </div>
+      )}
       {!content ? (
         <div className="py-8 text-center space-y-4">
           <p className="text-sm text-muted-fg font-display italic">

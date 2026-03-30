@@ -11,6 +11,13 @@ export interface PersonNode {
   unexplored: string[]
 }
 
+export interface EventNode {
+  name: string
+  year?: string
+  era?: string
+  place?: string
+}
+
 export interface EraNode {
   richness: EraRichness
   entries: number
@@ -264,6 +271,105 @@ export function buildGraphBriefing(graph: NarrativeGraph): string {
   }
 
   return sections.join('\n\n')
+}
+
+// Identifies gaps in biographical data — missing relationships, years, places.
+// Returns array of { entity_type, entity_key, field, question } objects.
+export interface CompletenessGap {
+  entity_type: 'person' | 'event'
+  entity_key: string
+  field: string
+  question: string
+}
+
+export function findCompletenessGaps(graph: NarrativeGraph): CompletenessGap[] {
+  const gaps: CompletenessGap[] = []
+
+  // People missing relationship field
+  for (const [name, node] of Object.entries(graph.people ?? {})) {
+    if (!node.relationship) {
+      gaps.push({
+        entity_type: 'person',
+        entity_key: name,
+        field: 'relationship',
+        question: `Earlier you mentioned someone named ${name}. What's your relationship to ${name}?`,
+      })
+    }
+  }
+
+  // Events missing year/era or place
+  for (const eventStr of graph.events ?? []) {
+    const event = typeof eventStr === 'object' ? (eventStr as EventNode) : { name: eventStr }
+
+    if (!event.year && !event.era) {
+      gaps.push({
+        entity_type: 'event',
+        entity_key: event.name,
+        field: 'year',
+        question: `You mentioned "${event.name}" — roughly what years was that?`,
+      })
+    }
+
+    if (!event.place) {
+      gaps.push({
+        entity_type: 'event',
+        entity_key: event.name,
+        field: 'place',
+        question: `Where did "${event.name}" take place?`,
+      })
+    }
+  }
+
+  return gaps
+}
+
+// Apply clarification answer directly to graph without enrichment pipeline.
+export function applyGraphPatch(
+  graph: NarrativeGraph,
+  entityType: 'person' | 'event',
+  entityKey: string,
+  field: string,
+  answer: string
+): NarrativeGraph {
+  const g: NarrativeGraph = JSON.parse(JSON.stringify(graph))
+
+  if (entityType === 'person') {
+    if (!g.people[entityKey]) {
+      g.people[entityKey] = { mentions: 0, facts: [], unexplored: [] }
+    }
+    if (field === 'relationship') {
+      g.people[entityKey].relationship = answer
+    }
+  } else if (entityType === 'event') {
+    // Find the event in the events array and update it
+    let eventFound = false
+    for (let i = 0; i < (g.events ?? []).length; i++) {
+      const evt = g.events![i]
+      const eventName = typeof evt === 'object' ? (evt as EventNode).name : evt
+      if (eventName === entityKey) {
+        if (typeof g.events![i] === 'string') {
+          // Convert string to object
+          g.events![i] = { name: entityKey } as unknown as string
+        }
+        const eventNode = g.events![i] as unknown as EventNode
+        if (field === 'year') eventNode.year = answer
+        if (field === 'era') eventNode.era = answer
+        if (field === 'place') eventNode.place = answer
+        eventFound = true
+        break
+      }
+    }
+    if (!eventFound && g.events) {
+      // Create new event node if not found
+      const newEvent: EventNode = { name: entityKey }
+      if (field === 'year') newEvent.year = answer
+      if (field === 'era') newEvent.era = answer
+      if (field === 'place') newEvent.place = answer
+      g.events.push(newEvent as unknown as string)
+    }
+  }
+
+  return g
 }
 
 export function emptyGraph(displayName?: string): NarrativeGraph {

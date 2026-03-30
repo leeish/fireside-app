@@ -2,7 +2,7 @@ import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { getAIClient } from '@/lib/ai'
-import { mergeExtraction, emptyGraph, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
+import { mergeExtraction, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 
 type ChatSettleEvent = {
   data: {
@@ -95,6 +95,21 @@ export const chatSettle = inngest.createFunction(
         .from('turns')
         .update({ processed: true })
         .in('id', userTurnIds)
+    }
+
+    // Detect completeness gaps and store pending clarifications
+    const gaps = findCompletenessGaps(updatedGraph)
+    if (gaps.length > 0) {
+      const clarifications = gaps.map(gap => ({
+        user_id: userId,
+        conversation_id: conversationId,
+        entity_type: gap.entity_type,
+        entity_key: gap.entity_key,
+        field: gap.field,
+        question: gap.question,
+        status: 'pending',
+      }))
+      await supabase.from('clarifications').insert(clarifications)
     }
 
     // Queue the next prompt
