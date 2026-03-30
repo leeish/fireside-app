@@ -81,6 +81,7 @@ export const chatRespond = inngest.createFunction(
       messages: chatMessages,
       temperature: 0.7,
       maxTokens: 300,
+      enableCache: true,
     })
 
     const chatModel = process.env.CHAT_MODEL ?? 'claude-haiku-4-5-20251001'

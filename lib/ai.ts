@@ -64,23 +64,52 @@ export async function chatComplete({
   messages,
   temperature = 0.7,
   maxTokens = 512,
+  enableCache = false,
 }: {
   system: string
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
   temperature?: number
   maxTokens?: number
+  enableCache?: boolean
 }): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
   const vendor = process.env.CHAT_VENDOR ?? 'anthropic'
   const model = process.env.CHAT_MODEL ?? 'claude-haiku-4-5-20251001'
 
   if (vendor === 'anthropic') {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+    // Apply cache control if enabled
+    const systemParam = enableCache
+      ? [
+          {
+            type: 'text' as const,
+            text: system,
+            cache_control: { type: 'ephemeral' as const },
+          },
+        ]
+      : system
+
+    const messagesParam = enableCache
+      ? messages.map((msg, idx) => ({
+          ...msg,
+          content: idx === 0
+            ? [
+                {
+                  type: 'text' as const,
+                  text: msg.content,
+                  cache_control: { type: 'ephemeral' as const },
+                },
+              ]
+            : msg.content,
+        }))
+      : messages
+
     const message = await client.messages.create({
       model,
       max_tokens: maxTokens,
       temperature,
-      system,
-      messages,
+      system: systemParam,
+      messages: messagesParam,
       output_config: {
         format: {
           type: 'json_schema',
