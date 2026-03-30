@@ -250,7 +250,7 @@ export default function SettledView({
         <CleanupTab
           conversationId={conversationId}
           entry={entry}
-          onSwitchTab={setTab}
+          onSwitchTab={(t) => setTab(t as Tab)}
           clarificationsCount={clarificationsCount}
         />
       </div>
@@ -260,7 +260,7 @@ export default function SettledView({
         <StoryTab
           conversationId={conversationId}
           entry={entry}
-          onSwitchTab={setTab}
+          onSwitchTab={(t) => setTab(t as Tab)}
           clarificationsCount={clarificationsCount}
         />
       </div>
