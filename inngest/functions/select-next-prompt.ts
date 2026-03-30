@@ -1,6 +1,7 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { claudeComplete } from '@/lib/ai'
+import { decrypt, encrypt } from '@/lib/crypto'
 import { buildSystemPrompt } from '@/lib/craft-system'
 import { synthesizeGraph } from '@/lib/synthesize-graph'
 import type { NarrativeGraph } from '@/lib/graph'
@@ -235,7 +236,9 @@ export const selectNextPrompt = inngest.createFunction(
       .eq('user_id', userId)
       .single()
 
-    const graph = (narrativeRow?.graph ?? {}) as NarrativeGraph
+    const graph: NarrativeGraph = narrativeRow?.graph
+      ? JSON.parse(decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!))
+      : {} as NarrativeGraph
 
     // Seed display_name from user record if missing in graph
     if (!graph.display_name) {
@@ -259,7 +262,7 @@ export const selectNextPrompt = inngest.createFunction(
       // Persist so chat-respond can use it as background context
       await supabase
         .from('narratives')
-        .update({ rolling_summary: freshSummary, updated_at: new Date().toISOString() })
+        .update({ rolling_summary: encrypt(freshSummary, process.env.MEMORY_ENCRYPTION_KEY!), updated_at: new Date().toISOString() })
         .eq('user_id', userId)
     }
 

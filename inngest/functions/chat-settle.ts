@@ -1,6 +1,6 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
-import { decrypt } from '@/lib/crypto'
+import { decrypt, encrypt } from '@/lib/crypto'
 import { getAIClient } from '@/lib/ai'
 import { mergeExtraction, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 
@@ -72,7 +72,9 @@ export const chatSettle = inngest.createFunction(
       .eq('user_id', userId)
       .single()
 
-    const currentGraph: NarrativeGraph = (narrativeRow?.graph as NarrativeGraph) ?? emptyGraph()
+    const currentGraph: NarrativeGraph = narrativeRow?.graph
+      ? JSON.parse(decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!))
+      : emptyGraph()
     const updatedGraph = mergeExtraction(currentGraph, extraction)
     const newVersion = (narrativeRow?.graph_version ?? 0) + 1
 
@@ -82,9 +84,11 @@ export const chatSettle = inngest.createFunction(
       .from('narratives')
       .upsert({
         user_id: userId,
-        graph: updatedGraph,
+        graph: encrypt(JSON.stringify(updatedGraph), process.env.MEMORY_ENCRYPTION_KEY!),
         graph_version: newVersion,
-        rolling_summary: updatedGraph.rolling_summary ?? null,
+        rolling_summary: updatedGraph.rolling_summary
+          ? encrypt(updatedGraph.rolling_summary, process.env.MEMORY_ENCRYPTION_KEY!)
+          : null,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 

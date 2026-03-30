@@ -1,6 +1,7 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { getAIClient } from '@/lib/ai'
+import { encrypt } from '@/lib/crypto'
 import { emptyGraph, mergeExtraction, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 
 type OnboardingSeedEvent = {
@@ -66,9 +67,11 @@ export const onboardingSeed = inngest.createFunction(
       .from('narratives')
       .upsert({
         user_id: userId,
-        graph: seededGraph,
+        graph: encrypt(JSON.stringify(seededGraph), process.env.MEMORY_ENCRYPTION_KEY!),
         graph_version: 1,
-        rolling_summary: seededGraph.rolling_summary ?? '',
+        rolling_summary: seededGraph.rolling_summary
+          ? encrypt(seededGraph.rolling_summary, process.env.MEMORY_ENCRYPTION_KEY!)
+          : '',
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 

@@ -1,6 +1,6 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
-import { decrypt } from '@/lib/crypto'
+import { decrypt, encrypt } from '@/lib/crypto'
 import { chatComplete } from '@/lib/ai'
 
 type ChatRespondEvent = {
@@ -69,8 +69,11 @@ export const chatRespond = inngest.createFunction(
     }))
 
     // Background context goes in the system prompt so it frames every turn
-    const systemPrompt = narrative?.rolling_summary
-      ? `${CHAT_SYSTEM}\n\nBackground on this person: ${narrative.rolling_summary}`
+    const rollingSummary = narrative?.rolling_summary
+      ? decrypt(narrative.rolling_summary as string, process.env.MEMORY_ENCRYPTION_KEY!)
+      : null
+    const systemPrompt = rollingSummary
+      ? `${CHAT_SYSTEM}\n\nBackground on this person: ${rollingSummary}`
       : CHAT_SYSTEM
 
     const raw = await chatComplete({

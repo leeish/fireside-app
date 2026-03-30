@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { applyGraphPatch, emptyGraph, type NarrativeGraph } from '@/lib/graph'
+import { decrypt, encrypt } from '@/lib/crypto'
 
 export async function GET(
   req: NextRequest,
@@ -86,7 +87,9 @@ export async function PATCH(
     .eq('user_id', user.id)
     .single()
 
-  const currentGraph: NarrativeGraph = (narrativeRow?.graph as NarrativeGraph) ?? emptyGraph()
+  const currentGraph: NarrativeGraph = narrativeRow?.graph
+    ? JSON.parse(decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!))
+    : emptyGraph()
   const updatedGraph = applyGraphPatch(
     currentGraph,
     clarification.entity_type,
@@ -101,9 +104,11 @@ export async function PATCH(
     .from('narratives')
     .upsert({
       user_id: user.id,
-      graph: updatedGraph,
+      graph: encrypt(JSON.stringify(updatedGraph), process.env.MEMORY_ENCRYPTION_KEY!),
       graph_version: newVersion,
-      rolling_summary: updatedGraph.rolling_summary ?? null,
+      rolling_summary: updatedGraph.rolling_summary
+        ? encrypt(updatedGraph.rolling_summary, process.env.MEMORY_ENCRYPTION_KEY!)
+        : null,
       updated_at: now,
     }, { onConflict: 'user_id' })
 

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { decrypt } from '@/lib/crypto'
 
 export default async function GraphPage() {
   const supabase = await createClient()
@@ -33,7 +34,7 @@ export default async function GraphPage() {
         <p className="text-muted-fg text-sm">No graph data yet.</p>
       ) : (
         <pre className="bg-card border border-border rounded-xl p-6 text-xs text-foreground/80 overflow-auto leading-relaxed whitespace-pre-wrap">
-          {JSON.stringify(narrative.graph, null, 2)}
+          {JSON.stringify(JSON.parse(decrypt(narrative.graph as string, process.env.MEMORY_ENCRYPTION_KEY!)), null, 2)}
         </pre>
       )}
     </div>
