@@ -30,7 +30,12 @@ export default function PromptCard({ promptId, question, reasoning, linkedConver
       }
     }
     setVisible(true)
-  }, [])
+
+    // Mark prompt as seen (fire-and-forget)
+    fetch(`/api/prompt/${promptId}/mark-seen`, { method: 'POST' }).catch(() => {
+      // Silent fail — viewing is best-effort
+    })
+  }, [promptId])
 
   async function handleSkip() {
     setSkipping(true)
