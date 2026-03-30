@@ -15,6 +15,7 @@ export default async function DashboardPage() {
     { data: queuedPrompt },
     { data: unprocessedTurn },
     { data: failedTurn },
+    { data: batchPendingConversation },
   ] = await Promise.all([
     supabase
       .from('users')
@@ -23,7 +24,7 @@ export default async function DashboardPage() {
       .single(),
     supabase
       .from('conversations')
-      .select('id, topic, status, opened_at, updated_at, channel')
+      .select('id, topic, status, opened_at, updated_at, channel, queued_for_batch')
       .eq('user_id', user.id)
       .neq('status', 'archived')
       .order('updated_at', { ascending: false })
@@ -54,11 +55,18 @@ export default async function DashboardPage() {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('conversations')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('queued_for_batch', true)
+      .maybeSingle(),
   ])
 
   const userName = profile?.display_name ?? 'Friend'
   const hasConversations = conversations && conversations.length > 0
   const isProcessing = !!unprocessedTurn && !queuedPrompt
+  const isBatchPending = !!batchPendingConversation && !queuedPrompt && !isProcessing
 
   const linkedConversation = queuedPrompt
     ? conversations?.find(c =>
@@ -100,6 +108,24 @@ export default async function DashboardPage() {
               style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
             >
               <p className="text-muted-fg text-sm italic font-display">Reading your response and crafting your next question...</p>
+            </div>
+          )}
+
+          {/* Batch processing pending */}
+          {isBatchPending && (
+            <div className="space-y-3">
+              <div
+                className="bg-card rounded-[2rem] border border-border/50 p-8 text-center"
+                style={{ boxShadow: '0 8px 32px -8px rgba(93, 112, 82, 0.10)' }}
+              >
+                <p className="font-display italic text-muted-fg text-base">We're reviewing your entry and preparing your next question...</p>
+              </div>
+              <p className="text-xs text-muted-fg text-center">
+                Something else on your mind?{' '}
+                <Link href="/dashboard/new" className="underline underline-offset-2 hover:text-foreground transition-colors duration-300">
+                  Write a free entry instead
+                </Link>
+              </p>
             </div>
           )}
 

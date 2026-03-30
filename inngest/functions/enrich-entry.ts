@@ -119,10 +119,16 @@ export const enrichEntry = inngest.createFunction(
 
     // Settle the conversation and create an entries row (email conversations are one-shot — settle after processing)
     const now = new Date().toISOString()
+    const isFirstEntry = updatedGraph.total_entries === 1
+
+    // First entry goes through immediate follow-up; subsequent entries queue for batch processing
+    const updateData = isFirstEntry
+      ? { status: 'settled', settled_at: now }
+      : { status: 'settled', settled_at: now, queued_for_batch: true }
 
     await supabase
       .from('conversations')
-      .update({ status: 'settled', settled_at: now })
+      .update(updateData)
       .eq('id', turn.conversation_id)
       .eq('status', 'active')  // only settle if still active — don't overwrite wrap_offered/settled
 
@@ -162,12 +168,11 @@ export const enrichEntry = inngest.createFunction(
     }
 
     // First entry gets a dedicated follow-up that reads the actual entry and continues it directly.
-    // All subsequent entries go through the standard scoring engine.
-    if (updatedGraph.total_entries === 1) {
+    // All subsequent entries are queued for batch processing at midnight ET.
+    if (isFirstEntry) {
       await inngest.send({ name: 'fireside/prompt.first-followup', data: { userId: turn.user_id, turnId: turn.id } })
-    } else {
-      await inngest.send({ name: 'fireside/prompt.select', data: { userId: turn.user_id } })
     }
+    // Subsequent entries: synthesis and prompt selection will be handled by batch-process-pending at midnight ET
 
     return {
       turnId,
