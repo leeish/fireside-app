@@ -88,19 +88,22 @@ export const chatSettle = inngest.createFunction(
     const updatedGraph = mergeExtraction(currentGraph, extraction)
     const newVersion = (narrativeRow?.graph_version ?? 0) + 1
 
-    // Synthesis is deferred to select-next-prompt — no point synthesizing now
-    // when the result won't be used until the next prompt is generated.
+    // Synthesis is deferred to batch-process-pending. Preserve existing rolling_summary
+    // since mergeExtraction doesn't update it — only synthesis does.
+    const updateData: Record<string, unknown> = {
+      user_id: userId,
+      graph: encrypt(JSON.stringify(updatedGraph), process.env.MEMORY_ENCRYPTION_KEY!),
+      graph_version: newVersion,
+      updated_at: new Date().toISOString(),
+    }
+    // Only update rolling_summary if it's non-empty; otherwise preserve the existing one
+    if (updatedGraph.rolling_summary) {
+      updateData.rolling_summary = encrypt(updatedGraph.rolling_summary, process.env.MEMORY_ENCRYPTION_KEY!)
+    }
+
     await supabase
       .from('narratives')
-      .upsert({
-        user_id: userId,
-        graph: encrypt(JSON.stringify(updatedGraph), process.env.MEMORY_ENCRYPTION_KEY!),
-        graph_version: newVersion,
-        rolling_summary: updatedGraph.rolling_summary
-          ? encrypt(updatedGraph.rolling_summary, process.env.MEMORY_ENCRYPTION_KEY!)
-          : null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
+      .upsert(updateData, { onConflict: 'user_id' })
 
     // Mark all user turns in this conversation as processed
     const userTurnIds = turns.filter(t => t.role === 'user').map(t => t.id)

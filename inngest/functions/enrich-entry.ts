@@ -97,19 +97,22 @@ export const enrichEntry = inngest.createFunction(
     const updatedGraph = mergeExtraction(currentGraph, extraction)
     const newVersion = (narrativeRow?.graph_version ?? 0) + 1
 
-    // Synthesis is deferred to select-next-prompt — no point synthesizing now
-    // when the result won't be used until the next prompt is generated.
+    // Synthesis is deferred to batch-process-pending. Preserve existing rolling_summary
+    // since mergeExtraction doesn't update it — only synthesis does.
+    const updateData: Record<string, unknown> = {
+      user_id: turn.user_id,
+      graph: encrypt(JSON.stringify(updatedGraph), process.env.MEMORY_ENCRYPTION_KEY!),
+      graph_version: newVersion,
+      updated_at: new Date().toISOString(),
+    }
+    // Only update rolling_summary if it's non-empty; otherwise preserve the existing one
+    if (updatedGraph.rolling_summary) {
+      updateData.rolling_summary = encrypt(updatedGraph.rolling_summary, process.env.MEMORY_ENCRYPTION_KEY!)
+    }
+
     await supabase
       .from('narratives')
-      .upsert({
-        user_id: turn.user_id,
-        graph: encrypt(JSON.stringify(updatedGraph), process.env.MEMORY_ENCRYPTION_KEY!),
-        graph_version: newVersion,
-        rolling_summary: updatedGraph.rolling_summary
-          ? encrypt(updatedGraph.rolling_summary, process.env.MEMORY_ENCRYPTION_KEY!)
-          : null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
+      .upsert(updateData, { onConflict: 'user_id' })
 
     // Mark turn as processed
     await supabase
@@ -122,13 +125,13 @@ export const enrichEntry = inngest.createFunction(
     const isFirstEntry = updatedGraph.total_entries === 1
 
     // First entry goes through immediate follow-up; subsequent entries queue for batch processing
-    const updateData = isFirstEntry
+    const conversationUpdate = isFirstEntry
       ? { status: 'settled', settled_at: now }
       : { status: 'settled', settled_at: now, queued_for_batch: true }
 
     await supabase
       .from('conversations')
-      .update(updateData)
+      .update(conversationUpdate)
       .eq('id', turn.conversation_id)
       .eq('status', 'active')  // only settle if still active — don't overwrite wrap_offered/settled
 
