@@ -46,7 +46,7 @@ export default function UsageChart({ data }: { data: WeeklyDataPoint[] }) {
             borderRadius: '0.75rem',
             fontSize: '12px',
           }}
-          formatter={(value: number) => [value.toLocaleString(), 'Tokens']}
+          formatter={(value) => [typeof value === 'number' ? value.toLocaleString() : value, 'Tokens']}
         />
         <Line
           type="monotone"
