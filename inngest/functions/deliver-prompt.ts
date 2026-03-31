@@ -69,6 +69,7 @@ export const deliverPrompt = inngest.createFunction(
         origin: 'biographer',
         channel: 'email',
         spine_completeness: 0,
+        queued_prompt_id: queuedPromptId,
       })
       .select('id')
       .single()

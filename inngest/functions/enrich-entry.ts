@@ -135,12 +135,19 @@ export const enrichEntry = inngest.createFunction(
       .eq('id', turn.conversation_id)
       .eq('status', 'active')  // only settle if still active — don't overwrite wrap_offered/settled
 
-    // Mark the engaged prompt as complete
-    await supabase
-      .from('queued_prompts')
-      .update({ delivery_state: 'complete' })
-      .eq('user_id', turn.user_id)
-      .eq('delivery_state', 'engaged')
+    // Mark the linked prompt as complete (if conversation has one)
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select('queued_prompt_id')
+      .eq('id', turn.conversation_id)
+      .single()
+
+    if (conversation?.queued_prompt_id) {
+      await supabase
+        .from('queued_prompts')
+        .update({ delivery_state: 'complete' })
+        .eq('id', conversation.queued_prompt_id)
+    }
 
     const { data: existingEntry } = await supabase
       .from('entries')

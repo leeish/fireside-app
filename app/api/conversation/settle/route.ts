@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
   const { data: conversation } = await service
     .from('conversations')
-    .select('id, status')
+    .select('id, status, queued_prompt_id')
     .eq('id', conversationId)
     .eq('user_id', user.id)
     .single()
@@ -34,12 +34,13 @@ export async function POST(request: NextRequest) {
     .update({ status: 'settled' })
     .eq('id', conversationId)
 
-  // Mark the engaged prompt as complete
-  await service
-    .from('queued_prompts')
-    .update({ delivery_state: 'complete' })
-    .eq('user_id', user.id)
-    .eq('delivery_state', 'engaged')
+  // Mark the linked prompt as complete (if it exists)
+  if (conversation.queued_prompt_id) {
+    await service
+      .from('queued_prompts')
+      .update({ delivery_state: 'complete' })
+      .eq('id', conversation.queued_prompt_id)
+  }
 
   // Run full transcript extraction and queue next prompt
   await inngest.send({
