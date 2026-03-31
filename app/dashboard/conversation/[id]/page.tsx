@@ -33,12 +33,10 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
     id: turn.id,
     role: turn.role,
     created_at: turn.created_at,
-    content: turn.role === 'user'
-      ? (() => {
-          try { return decrypt(turn.content, process.env.MEMORY_ENCRYPTION_KEY!) }
-          catch { return '[Unable to decrypt]' }
-        })()
-      : turn.content,
+    content: (() => {
+      try { return decrypt(turn.content, process.env.MEMORY_ENCRYPTION_KEY!) }
+      catch { return '[Unable to decrypt]' }
+    })(),
   }))
 
   const openedDate = new Date(conversation.opened_at).toLocaleDateString('en-US', {
