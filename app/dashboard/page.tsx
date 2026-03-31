@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase
       .from('users')
-      .select('display_name')
+      .select('display_name, next_prompt_delivery_date')
       .eq('id', user.id)
       .single(),
     supabase
@@ -126,6 +126,11 @@ export default async function DashboardPage() {
                   Write a free entry instead
                 </Link>
               </p>
+              {profile?.next_prompt_delivery_date && (
+                <p className="text-xs text-muted-fg text-center">
+                  Your next prompt will arrive on {new Date(profile.next_prompt_delivery_date).toLocaleDateString('en-US', { weekday: 'long' })}
+                </p>
+              )}
             </div>
           )}
 
