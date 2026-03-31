@@ -22,6 +22,7 @@ if (!supabaseUrl || !serviceRoleKey || !encryptionKey) {
 
 const supabase = createClient(supabaseUrl, serviceRoleKey)
 const key = encryptionKey
+const dryRun = process.argv.includes('--dry-run')
 
 async function main() {
   const PAGE_SIZE = 500
@@ -30,6 +31,7 @@ async function main() {
   let encrypted = 0
   let skipped = 0
 
+  if (dryRun) console.log('DRY RUN — no changes will be written.\n')
   console.log('Fetching biographer turns...')
 
   while (true) {
@@ -63,14 +65,16 @@ async function main() {
         continue
       }
 
-      const { error: updateError } = await supabase
-        .from('turns')
-        .update({ content: encrypt(row.content, key) })
-        .eq('id', row.id)
+      if (!dryRun) {
+        const { error: updateError } = await supabase
+          .from('turns')
+          .update({ content: encrypt(row.content, key) })
+          .eq('id', row.id)
 
-      if (updateError) {
-        console.error(`Failed to update turn ${row.id}:`, updateError.message)
-        process.exit(1)
+        if (updateError) {
+          console.error(`Failed to update turn ${row.id}:`, updateError.message)
+          process.exit(1)
+        }
       }
 
       encrypted++
@@ -80,7 +84,8 @@ async function main() {
     offset += PAGE_SIZE
   }
 
-  console.log(`Done. Total: ${total} | Encrypted: ${encrypted} | Already encrypted (skipped): ${skipped}`)
+  const action = dryRun ? 'Would encrypt' : 'Encrypted'
+  console.log(`Done. Total: ${total} | ${action}: ${encrypted} | Already encrypted (skipped): ${skipped}`)
 }
 
 main()
