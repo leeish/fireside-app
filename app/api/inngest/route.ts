@@ -1,5 +1,6 @@
 import { serve } from 'inngest/next'
 import { inngest } from '@/inngest/client'
+import { batchProcessPending } from '@/inngest/functions/batch-process-pending'
 import { chatRespond } from '@/inngest/functions/chat-respond'
 import { chatSettle } from '@/inngest/functions/chat-settle'
 import { deliverPrompt } from '@/inngest/functions/deliver-prompt'
@@ -10,5 +11,5 @@ import { selectNextPrompt } from '@/inngest/functions/select-next-prompt'
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [chatRespond, chatSettle, deliverPrompt, enrichEntry, firstFollowup, onboardingSeed, selectNextPrompt],
+  functions: [batchProcessPending, chatRespond, chatSettle, deliverPrompt, enrichEntry, firstFollowup, onboardingSeed, selectNextPrompt],
 })
