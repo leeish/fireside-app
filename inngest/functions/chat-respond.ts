@@ -1,7 +1,7 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt, encrypt } from '@/lib/crypto'
-import { chatComplete, logTokenUsage } from '@/lib/ai'
+import { chatComplete, logTokenUsage, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
 
 type ChatRespondEvent = {
   data: {
@@ -38,6 +38,8 @@ export const chatRespond = inngest.createFunction(
   async ({ event }: { event: ChatRespondEvent }) => {
     const { conversationId, userId } = event.data
     const supabase = createServiceClient()
+
+    const userApiKey = await resolveApiKey(userId, supabase)
 
     // Load narrative graph for background context
     const { data: narrative } = await supabase
@@ -76,13 +78,16 @@ export const chatRespond = inngest.createFunction(
       ? `${CHAT_SYSTEM}\n\nBackground on this person: ${rollingSummary}`
       : CHAT_SYSTEM
 
-    const { text: raw, inputTokens, outputTokens } = await chatComplete({
-      system: systemPrompt,
-      messages: chatMessages,
-      temperature: 0.7,
-      maxTokens: 300,
-      enableCache: true,
-    })
+    const { text: raw, inputTokens, outputTokens } = await withUserKeyFallback(userId, supabase, userApiKey, (key) =>
+      chatComplete({
+        system: systemPrompt,
+        messages: chatMessages,
+        temperature: 0.7,
+        maxTokens: 300,
+        enableCache: true,
+        apiKey: key,
+      })
+    )
 
     const chatModel = process.env.CHAT_MODEL ?? 'claude-haiku-4-5-20251001'
     await logTokenUsage(supabase, {

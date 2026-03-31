@@ -1,6 +1,6 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
-import { claudeComplete, logTokenUsage, getClaudeClient } from '@/lib/ai'
+import { claudeComplete, logTokenUsage, getClaudeClient, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
 import { decrypt, encrypt } from '@/lib/crypto'
 import { buildSystemPrompt } from '@/lib/craft-system'
 import { synthesizeGraph } from '@/lib/synthesize-graph'
@@ -25,6 +25,7 @@ Pass if: specific to this person, one question, opens something rather than clos
 async function qualityCheck(
   question: string,
   graphContext: string,
+  apiKey?: string,
   onUsage?: (inputTokens: number, outputTokens: number) => void,
 ): Promise<{ pass: boolean; reason: string }> {
   try {
@@ -33,6 +34,7 @@ async function qualityCheck(
       user: `Person context: ${graphContext}\n\nQuestion to evaluate: "${question}"`,
       temperature: 0,
       maxTokens: 200,
+      apiKey,
     })
     onUsage?.(result.inputTokens, result.outputTokens)
     return JSON.parse(result.text)
@@ -56,6 +58,8 @@ export const selectNextPrompt = inngest.createFunction(
       .single()
 
     if (userError || !user) throw new Error(`User not found: ${userId}`)
+
+    const userApiKey = await resolveApiKey(userId, supabase)
 
     // Load narrative graph
     const { data: narrativeRow } = await supabase
@@ -86,7 +90,7 @@ export const selectNextPrompt = inngest.createFunction(
     const { model: claudeModel } = getClaudeClient()
 
     if (graph.total_entries > 0) {
-      const synthResult = await synthesizeGraph(graph)
+      const synthResult = await withUserKeyFallback(userId, supabase, userApiKey, (key) => synthesizeGraph(graph, key))
       const freshSummary = synthResult.text
       graph.rolling_summary = freshSummary
 
@@ -171,14 +175,15 @@ Return ONLY valid JSON, no markdown, no explanation:
     let selectedQuestionType = candidates[0].questionType
 
     for (let attempt = 1; attempt <= 2; attempt++) {
-      const genResult = await claudeComplete({
+      const genResult = await withUserKeyFallback(userId, supabase, userApiKey, (key) => claudeComplete({
         system: systemPrompt,
         user: attempt === 1
           ? taskInstruction
           : taskInstruction + '\n\nPrevious attempt failed. Return valid JSON only: {"selectedThreadId": "...", "questionType": "...", "question": "..."}',
         temperature: 0.6,
         maxTokens: 400,
-      })
+        apiKey: key,
+      }))
 
       await logTokenUsage(supabase, {
         userId,
@@ -208,9 +213,11 @@ Return ONLY valid JSON, no markdown, no explanation:
 
       if (!question) continue
 
-      const check = await qualityCheck(question, graphContext, (inputTokens, outputTokens) => {
-        void logTokenUsage(supabase, { userId, inngestFunction: 'select-next-prompt', model: claudeModel, inputTokens, outputTokens, purpose: 'quality check' })
-      })
+      const check = await withUserKeyFallback(userId, supabase, userApiKey, (key) =>
+        qualityCheck(question, graphContext, key, (inputTokens, outputTokens) => {
+          void logTokenUsage(supabase, { userId, inngestFunction: 'select-next-prompt', model: claudeModel, inputTokens, outputTokens, purpose: 'quality check' })
+        })
+      )
       if (check.pass) break
 
       if (attempt === 2) {

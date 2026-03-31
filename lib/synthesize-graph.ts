@@ -20,10 +20,10 @@ Do not pad. Do not summarize. Do not write "in summary" or "overall." Just write
 
 Length should match the richness of what's been shared. A few sentences early on. A full page or more as the story deepens. Let the material determine the length — never truncate because it feels long enough.`
 
-export async function synthesizeGraph(graph: NarrativeGraph): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+export async function synthesizeGraph(graph: NarrativeGraph, apiKey?: string): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
   if (graph.total_entries === 0) return { text: graph.rolling_summary ?? '', inputTokens: 0, outputTokens: 0 }
 
-  const { client, model } = getClaudeClient()
+  const { client, model } = getClaudeClient(apiKey)
   const briefing = buildGraphBriefing(graph)
 
   const message = await client.messages.create({

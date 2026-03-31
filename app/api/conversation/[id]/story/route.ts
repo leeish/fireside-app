@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { claudeComplete, logTokenUsage, getClaudeClient } from '@/lib/ai'
+import { claudeComplete, logTokenUsage, getClaudeClient, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
 import { StoryGenerateSchema, StorySaveSchema } from '@/lib/schemas'
 
 const INTENSITY_PROMPTS = {
@@ -95,12 +95,16 @@ export async function POST(
     .join('\n\n')
 
   const { model: claudeModel } = getClaudeClient()
-  const { text: story, inputTokens, outputTokens } = await claudeComplete({
-    system: INTENSITY_PROMPTS[intensity],
-    user: sourceText,
-    maxTokens: 3000,
-    temperature: intensity === 'full' ? 0.8 : 0.6,
-  })
+  const userApiKey = await resolveApiKey(user.id, service)
+  const { text: story, inputTokens, outputTokens } = await withUserKeyFallback(user.id, service, userApiKey, (key) =>
+    claudeComplete({
+      system: INTENSITY_PROMPTS[intensity],
+      user: sourceText,
+      maxTokens: 3000,
+      temperature: intensity === 'full' ? 0.8 : 0.6,
+      apiKey: key,
+    })
+  )
 
   void logTokenUsage(service, {
     userId: user.id,

@@ -8,6 +8,8 @@ type Props = {
   email: string
   cadence: string
   isActive: boolean
+  hasApiKey: boolean
+  apiKeyStatus: string | null
 }
 
 const CADENCE_OPTIONS = [
@@ -16,7 +18,7 @@ const CADENCE_OPTIONS = [
   { value: 'daily', label: 'Daily', description: 'A prompt every day', premium: true },
 ]
 
-export default function SettingsForm({ displayName, email, cadence, isActive }: Props) {
+export default function SettingsForm({ displayName, email, cadence, isActive, hasApiKey, apiKeyStatus }: Props) {
   const [name, setName] = useState(displayName)
   const [selectedCadence, setSelectedCadence] = useState(cadence)
   const [active, setActive] = useState(isActive)
@@ -41,6 +43,14 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
 
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [savingKey, setSavingKey] = useState(false)
+  const [keyError, setKeyError] = useState('')
+  const [keySaved, setKeySaved] = useState(false)
+  const [removingKey, setRemovingKey] = useState(false)
+  const [localHasKey, setLocalHasKey] = useState(hasApiKey)
+  const [localKeyStatus, setLocalKeyStatus] = useState(apiKeyStatus)
+
   async function handleSave() {
     setSaving(true)
     setSaved(false)
@@ -64,6 +74,38 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
       setTimeout(() => setSaved(false), 3000)
     }
     setSaving(false)
+  }
+
+  async function handleSaveKey() {
+    setSavingKey(true)
+    setKeyError('')
+    setKeySaved(false)
+    const res = await fetch('/api/settings/api-key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey: apiKeyInput }),
+    })
+    if (!res.ok) {
+      const body = await res.json()
+      setKeyError(body.error ?? 'Something went wrong')
+    } else {
+      setLocalHasKey(true)
+      setLocalKeyStatus('active')
+      setApiKeyInput('')
+      setKeySaved(true)
+      setTimeout(() => setKeySaved(false), 3000)
+    }
+    setSavingKey(false)
+  }
+
+  async function handleRemoveKey() {
+    setRemovingKey(true)
+    const res = await fetch('/api/settings/api-key', { method: 'DELETE' })
+    if (res.ok) {
+      setLocalHasKey(false)
+      setLocalKeyStatus(null)
+    }
+    setRemovingKey(false)
   }
 
   async function handleDelete() {
@@ -236,6 +278,64 @@ export default function SettingsForm({ displayName, email, cadence, isActive }: 
           </div>
           <span className="text-xs font-medium text-muted-fg bg-muted px-3 py-1 rounded-full">Coming soon</span>
         </div>
+      </section>
+
+      {/* API Key */}
+      <section
+        className="bg-card rounded-[2rem] border border-border/50 p-7 space-y-4"
+        style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
+      >
+        <div>
+          <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest">API Key</h2>
+          <p className="text-xs text-muted-fg mt-1">Use your own Anthropic API key to avoid shared platform limits.</p>
+        </div>
+        {localHasKey ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-foreground font-medium">API key saved</span>
+              {localKeyStatus === 'active' && (
+                <span className="text-xs font-medium text-green-700 bg-green-50 px-3 py-1 rounded-full">Active</span>
+              )}
+              {localKeyStatus === 'invalid' && (
+                <span className="text-xs font-medium text-red-600 bg-red-50 px-3 py-1 rounded-full">Invalid — check your key</span>
+              )}
+              {localKeyStatus === 'quota_exceeded' && (
+                <span className="text-xs font-medium text-amber-600 bg-amber-50 px-3 py-1 rounded-full">Out of credits — add funds to your Anthropic account</span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleRemoveKey}
+              disabled={removingKey}
+              className="h-9 px-5 border-2 border-border text-foreground/70 text-sm font-medium rounded-full hover:bg-muted disabled:opacity-50 transition-all duration-300"
+            >
+              {removingKey ? 'Removing...' : 'Remove key'}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <input
+              type="password"
+              value={apiKeyInput}
+              onChange={e => setApiKeyInput(e.target.value)}
+              placeholder="sk-ant-..."
+              className="w-full h-12 px-5 border border-border rounded-full text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-300"
+              style={{ backgroundColor: 'var(--fs-surface)' }}
+            />
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleSaveKey}
+                disabled={savingKey || !apiKeyInput.trim()}
+                className="h-9 px-5 bg-primary hover:bg-primary/90 text-white text-sm font-medium rounded-full hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100 transition-all duration-300"
+              >
+                {savingKey ? 'Validating...' : 'Save key'}
+              </button>
+              {keySaved && <p className="text-sm text-primary font-medium">Saved</p>}
+              {keyError && <p className="text-sm text-red-600">{keyError}</p>}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Save */}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { claudeComplete, logTokenUsage, getClaudeClient } from '@/lib/ai'
+import { claudeComplete, logTokenUsage, getClaudeClient, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
 import { CleanupSchema } from '@/lib/schemas'
 
 export async function POST(
@@ -101,12 +101,16 @@ Return only the written account. No commentary, no quotation marks, no markdown.
   }
 
   const { model: claudeModel } = getClaudeClient()
-  const { text: cleaned, inputTokens, outputTokens } = await claudeComplete({
-    system: systemPrompt,
-    user: sourceText,
-    maxTokens: 2048,
-    temperature: 0.4,
-  })
+  const userApiKey = await resolveApiKey(user.id, service)
+  const { text: cleaned, inputTokens, outputTokens } = await withUserKeyFallback(user.id, service, userApiKey, (key) =>
+    claudeComplete({
+      system: systemPrompt,
+      user: sourceText,
+      maxTokens: 2048,
+      temperature: 0.4,
+      apiKey: key,
+    })
+  )
 
   void logTokenUsage(service, {
     userId: user.id,

@@ -9,7 +9,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from('users')
-    .select('display_name, cadence, is_active')
+    .select('display_name, cadence, is_active, anthropic_api_key, anthropic_api_key_status')
     .eq('id', user.id)
     .single()
 
@@ -24,6 +24,8 @@ export default async function SettingsPage() {
         email={user.email ?? ''}
         cadence={profile?.cadence ?? 'weekly'}
         isActive={profile?.is_active ?? true}
+        hasApiKey={!!profile?.anthropic_api_key}
+        apiKeyStatus={profile?.anthropic_api_key_status ?? null}
       />
     </div>
   )

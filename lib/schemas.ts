@@ -156,3 +156,12 @@ export const PromptEmailSchema = z.object({
   promptCategory: z.string().optional(),
 })
 export type PromptEmailInput = z.infer<typeof PromptEmailSchema>
+
+// ---------------------------------------------------------------------------
+// API Key (BYOK)
+// ---------------------------------------------------------------------------
+
+export const ApiKeySchema = z.object({
+  apiKey: z.string().trim().min(1, 'API key is required').startsWith('sk-ant-', 'Must be a valid Anthropic API key'),
+})
+export type ApiKeyInput = z.infer<typeof ApiKeySchema>

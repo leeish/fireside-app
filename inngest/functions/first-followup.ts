@@ -1,7 +1,7 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import { claudeComplete, logTokenUsage, getClaudeClient } from '@/lib/ai'
+import { claudeComplete, logTokenUsage, getClaudeClient, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
 
 type FirstFollowupEvent = { data: { userId: string; turnId: string } }
 
@@ -76,15 +76,16 @@ export const firstFollowup = inngest.createFunction(
 
     if (!user) throw new Error(`User not found: ${userId}`)
 
+    const userApiKey = await resolveApiKey(userId, supabase)
     const userContent = `The opening prompt they responded to: "${questionText}"\n\nTheir first entry:\n${responseText}\n\nWrite the follow-up question now.`
 
     const { model: claudeModel } = getClaudeClient()
 
     // Generate 3 candidates in parallel using Claude
     const candidateResults = await Promise.all([
-      claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300 }),
-      claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300 }),
-      claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300 }),
+      withUserKeyFallback(userId, supabase, userApiKey, (key) => claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300, apiKey: key })),
+      withUserKeyFallback(userId, supabase, userApiKey, (key) => claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300, apiKey: key })),
+      withUserKeyFallback(userId, supabase, userApiKey, (key) => claudeComplete({ system: FIRST_FOLLOWUP_SYSTEM, user: userContent, temperature: 0.8, maxTokens: 300, apiKey: key })),
     ])
 
     await Promise.all(candidateResults.map(r => logTokenUsage(supabase, {
@@ -105,12 +106,13 @@ export const firstFollowup = inngest.createFunction(
 
     if (candidates.length > 1) {
       try {
-        const selectorResult = await claudeComplete({
+        const selectorResult = await withUserKeyFallback(userId, supabase, userApiKey, (key) => claudeComplete({
           system: SELECTOR_SYSTEM + '\n\nReturn valid JSON only.',
           user: `User's first entry:\n${responseText}\n\nCandidates:\n0: ${candidates[0]}\n\n1: ${candidates[1]}\n\n2: ${candidates[2] ?? '(none)'}`,
           temperature: 0,
           maxTokens: 200,
-        })
+          apiKey: key,
+        }))
         await logTokenUsage(supabase, {
           userId,
           conversationId: turn.conversation_id,
