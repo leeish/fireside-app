@@ -34,6 +34,13 @@ export async function POST(request: NextRequest) {
     .update({ status: 'settled' })
     .eq('id', conversationId)
 
+  // Mark the engaged prompt as complete
+  await service
+    .from('queued_prompts')
+    .update({ delivery_state: 'complete' })
+    .eq('user_id', user.id)
+    .eq('delivery_state', 'engaged')
+
   // Run full transcript extraction and queue next prompt
   await inngest.send({
     name: 'fireside/chat.settle',
