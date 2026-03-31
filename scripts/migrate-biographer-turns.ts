@@ -4,19 +4,19 @@
  * Run BEFORE deploying the code that encrypts new biographer turns:
  *   npx tsx scripts/migrate-biographer-turns.ts
  *
- * Requires SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and MEMORY_ENCRYPTION_KEY
+ * Requires NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and MEMORY_ENCRYPTION_KEY
  * to be set in the environment (or a .env.local file loaded via --env-file).
  */
 
 import { createClient } from '@supabase/supabase-js'
 import { encrypt, decrypt } from '../lib/crypto'
 
-const supabaseUrl = process.env.SUPABASE_URL
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const encryptionKey = process.env.MEMORY_ENCRYPTION_KEY
 
 if (!supabaseUrl || !serviceRoleKey || !encryptionKey) {
-  console.error('Missing required env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MEMORY_ENCRYPTION_KEY')
+  console.error('Missing required env vars: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MEMORY_ENCRYPTION_KEY')
   process.exit(1)
 }
 
