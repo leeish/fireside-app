@@ -65,7 +65,9 @@ export const firstFollowup = inngest.createFunction(
       .order('created_at', { ascending: false })
       .limit(1)
 
-    const questionText = bioTurns?.[0]?.content ?? ''
+    const questionText = bioTurns?.[0]?.content
+      ? decrypt(bioTurns[0].content, process.env.MEMORY_ENCRYPTION_KEY!)
+      : ''
     const responseText = decrypt(turn.content, process.env.MEMORY_ENCRYPTION_KEY!)
 
     const { data: user } = await supabase

@@ -47,9 +47,7 @@ export async function POST(
 
   const decryptedTurns = (turns ?? []).map(t => ({
     role: t.role,
-    content: t.role === 'user'
-      ? (() => { try { return decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return '' } })()
-      : t.content,
+    content: (() => { try { return decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return '' } })(),
   })).filter(t => t.content)
 
   const transcript = decryptedTurns

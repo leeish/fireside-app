@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { encrypt } from '@/lib/crypto'
 import { claudeComplete, logTokenUsage, getClaudeClient, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
 import { BiographerStartSchema } from '@/lib/schemas'
 
@@ -75,7 +76,7 @@ Feel like an invitation to share something real, not a form field or interview p
       conversation_id: conversation.id,
       user_id: user.id,
       role: 'biographer',
-      content: trimmedQuestion,
+      content: encrypt(trimmedQuestion, process.env.MEMORY_ENCRYPTION_KEY!),
       channel: 'web',
       processed: true,
     })

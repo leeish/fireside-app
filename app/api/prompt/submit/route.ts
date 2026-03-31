@@ -39,14 +39,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create conversation' }, { status: 500 })
   }
 
-  // Biographer turn (the question — plaintext)
+  // Biographer turn (the question — encrypted)
   const { error: bioTurnError } = await service
     .from('turns')
     .insert({
       conversation_id: conversation.id,
       user_id: user.id,
       role: 'biographer',
-      content: promptText,
+      content: encrypt(promptText, process.env.MEMORY_ENCRYPTION_KEY!),
       channel: 'web',
       processed: true,
     })

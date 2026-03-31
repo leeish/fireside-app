@@ -52,7 +52,9 @@ export const enrichEntry = inngest.createFunction(
       .order('created_at', { ascending: false })
       .limit(1)
 
-    const questionText = bioTurns?.[0]?.content ?? ''
+    const questionText = bioTurns?.[0]?.content
+      ? decrypt(bioTurns[0].content, process.env.MEMORY_ENCRYPTION_KEY!)
+      : ''
 
     // Decrypt the user's response
     const responseText = decrypt(turn.content, process.env.MEMORY_ENCRYPTION_KEY!)

@@ -1,5 +1,6 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
+import { encrypt } from '@/lib/crypto'
 import { sendPrompt } from '@/lib/email'
 import { selectNextPrompt } from './select-next-prompt'
 
@@ -88,7 +89,7 @@ export const deliverPrompt = inngest.createFunction(
         conversation_id: conversation.id,
         user_id: userId,
         role: 'biographer',
-        content: qp.question,
+        content: encrypt(qp.question, process.env.MEMORY_ENCRYPTION_KEY!),
         channel: 'email',
         processed: true,  // biographer turns don't need extraction
       })

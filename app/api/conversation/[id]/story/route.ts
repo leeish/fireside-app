@@ -81,15 +81,12 @@ export async function POST(
 
   const sourceText = (turns ?? [])
     .map(t => {
-      if (t.role === 'user') {
-        try {
-          const decrypted = decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!)
-          return `You: ${decrypted}`
-        } catch {
-          return null
-        }
+      try {
+        const decrypted = decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!)
+        return t.role === 'user' ? `You: ${decrypted}` : `Biographer: ${decrypted}`
+      } catch {
+        return null
       }
-      return `Biographer: ${t.content}`
     })
     .filter(Boolean)
     .join('\n\n')
