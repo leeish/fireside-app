@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import FirstPromptPicker from './FirstPromptPicker'
+import GenerateNowButton from './GenerateNowButton'
 import PromptCard from './PromptCard'
 
 export default async function DashboardPage() {
@@ -126,6 +127,7 @@ export default async function DashboardPage() {
                   Write a free entry instead
                 </Link>
               </p>
+              <GenerateNowButton />
               {profile?.next_prompt_delivery_date && (
                 <p className="text-xs text-muted-fg text-center">
                   Your next prompt will arrive on {new Date(profile.next_prompt_delivery_date).toLocaleDateString('en-US', { weekday: 'long' })}
