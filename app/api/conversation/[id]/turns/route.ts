@@ -34,9 +34,7 @@ export async function GET(
     id: turn.id,
     role: turn.role,
     created_at: turn.created_at,
-    content: turn.role === 'user'
-      ? (() => { try { return decrypt(turn.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return '' } })()
-      : turn.content,
+    content: (() => { try { return decrypt(turn.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return '' } })(),
   }))
 
   return NextResponse.json({ turns: decrypted, status: conversation.status })
