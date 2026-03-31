@@ -1,30 +1,19 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { sendPrompt } from '@/lib/email'
+import { selectNextPrompt } from './select-next-prompt'
 
 type DeliverPromptEvent = {
   data: {
     userId: string
-    queuedPromptId: string
   }
 }
 
 export const deliverPrompt = inngest.createFunction(
   { id: 'deliver-prompt', retries: 3, triggers: [{ event: 'fireside/prompt.deliver' }] },
-  async ({ event }: { event: DeliverPromptEvent }) => {
-    const { userId, queuedPromptId } = event.data
+  async ({ event, step }: { event: DeliverPromptEvent; step: any }) => {
+    const { userId } = event.data
     const supabase = createServiceClient()
-
-    // Load the queued prompt
-    const { data: qp, error: qpError } = await supabase
-      .from('queued_prompts')
-      .select('id, question, question_type, delivery_state')
-      .eq('id', queuedPromptId)
-      .eq('user_id', userId)
-      .single()
-
-    if (qpError || !qp) throw new Error(`Queued prompt not found: ${queuedPromptId}`)
-    if (qp.delivery_state === 'complete') return { skipped: 'already complete' }
 
     // Don't send if another prompt is already awaiting a response
     const { data: inFlight } = await supabase
@@ -32,7 +21,6 @@ export const deliverPrompt = inngest.createFunction(
       .select('id')
       .eq('user_id', userId)
       .eq('delivery_state', 'email_sent')
-      .neq('id', queuedPromptId)
       .limit(1)
       .maybeSingle()
 
@@ -41,22 +29,39 @@ export const deliverPrompt = inngest.createFunction(
     // Load user
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, email, display_name, last_active_at, is_active')
+      .select('id, email, display_name')
       .eq('id', userId)
       .single()
 
     if (userError || !user) throw new Error(`User not found: ${userId}`)
 
-    // Skip if user has paused deliveries
-    if (!user.is_active) return { skipped: 'user has paused deliveries' }
+    // Find the first open prompt (queued or seen in-app but not yet answered)
+    const { data: openPrompt } = await supabase
+      .from('queued_prompts')
+      .select('id, question, question_type, delivery_state')
+      .eq('user_id', userId)
+      .in('delivery_state', ['queued', 'in_app_seen'])
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
 
-    // Hold rule: if user was active in the last 6 hours, skip email this cycle
-    if (user.last_active_at) {
-      const lastActive = new Date(user.last_active_at).getTime()
-      const sixHoursAgo = Date.now() - 6 * 60 * 60 * 1000
-      if (lastActive > sixHoursAgo) {
-        return { skipped: 'user recently active — holding email' }
-      }
+    let qp = openPrompt
+
+    // Fallback: no open prompts — generate a fresh one now (skip scheduling a new delivery)
+    if (!qp) {
+      const result = await step.invoke('generate-fresh-prompt', {
+        function: selectNextPrompt,
+        data: { userId, skipScheduling: true },
+      })
+
+      const { data: freshPrompt, error: freshError } = await supabase
+        .from('queued_prompts')
+        .select('id, question, question_type, delivery_state')
+        .eq('id', result.queuedPromptId)
+        .single()
+
+      if (freshError || !freshPrompt) throw new Error(`Failed to load fresh prompt: ${freshError?.message}`)
+      qp = freshPrompt
     }
 
     // Create the conversation for this delivery
@@ -69,7 +74,7 @@ export const deliverPrompt = inngest.createFunction(
         origin: 'biographer',
         channel: 'email',
         spine_completeness: 0,
-        queued_prompt_id: queuedPromptId,
+        queued_prompt_id: qp.id,
       })
       .select('id')
       .single()
@@ -103,8 +108,8 @@ export const deliverPrompt = inngest.createFunction(
     await supabase
       .from('queued_prompts')
       .update({ delivery_state: 'email_sent', email_sent_at: new Date().toISOString() })
-      .eq('id', queuedPromptId)
+      .eq('id', qp.id)
 
-    return { conversationId: conversation.id, queuedPromptId }
+    return { conversationId: conversation.id, queuedPromptId: qp.id }
   }
 )

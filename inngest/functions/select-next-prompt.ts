@@ -7,7 +7,7 @@ import { synthesizeGraph } from '@/lib/synthesize-graph'
 import type { NarrativeGraph } from '@/lib/graph'
 import { selectTopThreads } from './select-next-prompt-engine'
 
-type SelectNextPromptEvent = { data: { userId: string } }
+type SelectNextPromptEvent = { data: { userId: string; skipScheduling?: boolean } }
 
 // ─── Quality check ────────────────────────────────────────────
 const QUALITY_CHECK_PROMPT = `Evaluate this question and return JSON: { "pass": boolean, "reason": string }
@@ -47,7 +47,7 @@ async function qualityCheck(
 export const selectNextPrompt = inngest.createFunction(
   { id: 'select-next-prompt', retries: 3, triggers: [{ event: 'fireside/prompt.select' }] },
   async ({ event }: { event: SelectNextPromptEvent }) => {
-    const { userId } = event.data
+    const { userId, skipScheduling } = event.data
     const supabase = createServiceClient()
 
     // Load user
@@ -256,40 +256,41 @@ Return ONLY valid JSON, no markdown, no explanation:
       .update({ queued_prompt_id: qp.id })
       .eq('id', userId)
 
-    // Schedule delivery based on cadence
-    const CADENCE_DAYS: Record<string, number> = {
-      daily: 1,
-      few_per_week: 3,
-      weekly: 7,
+    if (!skipScheduling) {
+      // Schedule delivery based on cadence
+      const CADENCE_DAYS: Record<string, number> = {
+        daily: 1,
+        few_per_week: 3,
+        weekly: 7,
+      }
+      const deliverInDays = CADENCE_DAYS[user.cadence ?? 'weekly'] ?? 7
+      const deliverAt = new Date()
+      deliverAt.setDate(deliverAt.getDate() + deliverInDays)
+
+      // Check if delivery is already scheduled in the future
+      if (user.next_prompt_delivery_date && new Date(user.next_prompt_delivery_date) > deliverAt) {
+        return { userId, queuedPromptId: qp.id, skipped: 'delivery already scheduled' }
+      }
+
+      // Schedule delivery and update user's next delivery timestamp
+      await inngest.send({
+        name: 'fireside/prompt.deliver',
+        data: { userId },
+        ts: deliverAt.getTime(),
+      })
+
+      // Track the scheduled delivery date
+      await supabase
+        .from('users')
+        .update({ next_prompt_delivery_date: deliverAt.toISOString() })
+        .eq('id', userId)
     }
-    const deliverInDays = CADENCE_DAYS[user.cadence ?? 'weekly'] ?? 7
-    const deliverAt = new Date()
-    deliverAt.setDate(deliverAt.getDate() + deliverInDays)
-
-    // Check if delivery is already scheduled in the future
-    if (user.next_prompt_delivery_date && new Date(user.next_prompt_delivery_date) > deliverAt) {
-      return { userId, skipped: 'delivery already scheduled' }
-    }
-
-    // Schedule delivery and update user's next delivery timestamp
-    await inngest.send({
-      name: 'fireside/prompt.deliver',
-      data: { userId, queuedPromptId: qp.id },
-      ts: deliverAt.getTime(),
-    })
-
-    // Track the scheduled delivery date
-    await supabase
-      .from('users')
-      .update({ next_prompt_delivery_date: deliverAt.toISOString() })
-      .eq('id', userId)
 
     return {
       userId,
       queuedPromptId: qp.id,
       threadId: selectedThreadId,
       questionType: selectedQuestionType,
-      deliverAt: deliverAt.toISOString(),
     }
   }
 )
