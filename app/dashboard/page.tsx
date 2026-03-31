@@ -116,21 +116,26 @@ export default async function DashboardPage() {
           {isBatchPending && (
             <div className="space-y-3">
               <div
-                className="bg-card rounded-[2rem] border border-border/50 p-8 text-center"
+                className="bg-card rounded-[2rem] border border-border/50 p-8 text-center space-y-5"
                 style={{ boxShadow: '0 8px 32px -8px rgba(93, 112, 82, 0.10)' }}
               >
                 <p className="font-display italic text-muted-fg text-base">We're reviewing your entry and preparing your next question...</p>
+                <div className="flex items-center justify-center gap-3">
+                  <GenerateNowButton />
+                  <Link
+                    href="/dashboard/new"
+                    className="inline-flex items-center gap-2 h-10 px-5 rounded-full border border-border/60 text-sm text-muted-fg hover:text-foreground hover:border-border transition-all duration-300"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>
+                    </svg>
+                    Free Entry
+                  </Link>
+                </div>
               </div>
-              <p className="text-xs text-muted-fg text-center">
-                Something else on your mind?{' '}
-                <Link href="/dashboard/new" className="underline underline-offset-2 hover:text-foreground transition-colors duration-300">
-                  Write a free entry instead
-                </Link>
-              </p>
-              <GenerateNowButton />
               {profile?.next_prompt_delivery_date && (
                 <p className="text-xs text-muted-fg text-center">
-                  Your next prompt will arrive on {new Date(profile.next_prompt_delivery_date).toLocaleDateString('en-US', { weekday: 'long' })}
+                  Next prompt arrives {new Date(profile.next_prompt_delivery_date).toLocaleDateString('en-US', { weekday: 'long' })}
                 </p>
               )}
             </div>
