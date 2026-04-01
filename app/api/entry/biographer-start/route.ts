@@ -51,7 +51,6 @@ Feel like an invitation to share something real, not a form field or interview p
       status: 'active',
       origin: 'user',
       channel: 'web',
-      spine_completeness: 0,
     })
     .select('id')
     .single()

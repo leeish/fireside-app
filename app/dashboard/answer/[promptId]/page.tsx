@@ -47,7 +47,6 @@ export default async function AnswerPage({ params }: { params: Promise<{ promptI
       status: 'active',
       origin: 'biographer',
       channel: 'app',
-      spine_completeness: 0,
       queued_prompt_id: promptId,
     })
     .select('id')

@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
       status: 'active',
       origin: 'biographer',
       channel: 'web',
-      spine_completeness: 0,
     })
     .select('id')
     .single()
