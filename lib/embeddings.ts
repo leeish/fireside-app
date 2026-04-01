@@ -13,9 +13,6 @@ export interface EmbeddingResult {
 // The backfill script (scripts/backfill-entry-embeddings.ts) catches any persistent misses.
 export async function generateEmbedding(text: string): Promise<EmbeddingResult | null> {
   try {
-    const isLocal = !!process.env.LOCAL_AI_URL
-    if (isLocal) return null  // local dev — skip embeddings
-
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const input = text.slice(0, MAX_INPUT_CHARS).trim()
     if (!input) return null

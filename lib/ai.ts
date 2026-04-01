@@ -8,12 +8,8 @@ import { decrypt } from '@/lib/crypto'
 // chatComplete: vendor/model configurable via CHAT_VENDOR + CHAT_MODEL env vars
 
 export function getAIClient() {
-  const isLocal = !!process.env.LOCAL_AI_URL
-  const client = new OpenAI({
-    apiKey: isLocal ? 'ollama' : process.env.OPENAI_API_KEY,
-    ...(isLocal && { baseURL: process.env.LOCAL_AI_URL }),
-  })
-  const model = isLocal ? (process.env.LOCAL_AI_MODEL ?? 'llama3.2:3b') : 'gpt-4o-mini'
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const model = 'gpt-4o-mini'
   return { client, model }
 }
 
