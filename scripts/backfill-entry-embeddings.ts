@@ -92,8 +92,8 @@ async function main() {
       continue
     }
 
-    const embedding = await generateEmbedding(userText)
-    if (!embedding) {
+    const embeddingResult = await generateEmbedding(userText)
+    if (!embeddingResult) {
       console.log(`  failed ${entry.id} — embedding returned null`)
       failed++
       continue
@@ -101,7 +101,7 @@ async function main() {
 
     const { error: updateError } = await supabase
       .from('entries')
-      .update({ embedding: JSON.stringify(embedding) })
+      .update({ embedding: JSON.stringify(embeddingResult.embedding) })
       .eq('id', entry.id)
 
     if (updateError) {
