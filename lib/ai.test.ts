@@ -73,6 +73,28 @@ describe('chatComplete', () => {
       expect(result.outputTokens).toBe(50)
     })
 
+    it('does not apply cache_control to first message when its content is empty', async () => {
+      mockAnthropicCreate.mockResolvedValueOnce({
+        content: [{ type: 'text', text: '{"response": "test", "wrap": false}' }],
+        usage: { input_tokens: 100, output_tokens: 50 },
+      })
+
+      await chatComplete({
+        system: 'Test system prompt',
+        messages: [
+          { role: 'user', content: '' },
+          { role: 'assistant', content: 'Response' },
+        ],
+        enableCache: true,
+      })
+
+      const callArgs = mockAnthropicCreate.mock.calls[0][0]
+
+      // First message has empty content — should NOT be wrapped with cache_control
+      expect(typeof callArgs.messages[0].content).toBe('string')
+      expect(callArgs.messages[0].content).toBe('')
+    })
+
     it('does not apply cache_control when enableCache=false', async () => {
       mockAnthropicCreate.mockResolvedValueOnce({
         content: [{ type: 'text', text: '{"response": "test", "wrap": false}' }],

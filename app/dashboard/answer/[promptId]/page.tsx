@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { encrypt } from '@/lib/crypto'
 
 // Creates (or finds) the conversation for a queued prompt and redirects to it.
 // This handles the in-app "Answer" flow where no conversation exists yet.
@@ -59,7 +60,7 @@ export default async function AnswerPage({ params }: { params: Promise<{ promptI
     conversation_id: conversation.id,
     user_id: user.id,
     role: 'biographer',
-    content: qp.question,
+    content: encrypt(qp.question, process.env.MEMORY_ENCRYPTION_KEY!),
     channel: 'app',
     processed: true,
   })

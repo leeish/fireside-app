@@ -93,7 +93,7 @@ export async function chatComplete({
     const messagesParam = enableCache
       ? messages.map((msg, idx) => ({
           ...msg,
-          content: idx === 0
+          content: idx === 0 && msg.content.trim()
             ? [
                 {
                   type: 'text' as const,
