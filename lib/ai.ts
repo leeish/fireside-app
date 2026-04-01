@@ -125,10 +125,12 @@ export async function chatComplete({
         ]
       : system
 
+    const firstUserIdx = enableCache ? messages.findIndex(m => m.role === 'user') : -1
+
     const messagesParam = enableCache
       ? messages.map((msg, idx) => ({
           ...msg,
-          content: idx === 0 && msg.content.trim()
+          content: idx === firstUserIdx && msg.content.trim()
             ? [
                 {
                   type: 'text' as const,

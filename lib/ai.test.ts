@@ -31,6 +31,39 @@ describe('chatComplete', () => {
   })
 
   describe('cache control with Anthropic', () => {
+    it('applies cache_control to first USER message even when conversation starts with assistant', async () => {
+      mockAnthropicCreate.mockResolvedValueOnce({
+        content: [{ type: 'text', text: '{"response": "test", "wrap": false}' }],
+        usage: { input_tokens: 100, output_tokens: 50 },
+      })
+
+      await chatComplete({
+        system: 'Test system prompt',
+        messages: [
+          { role: 'assistant', content: 'Opening biographer question' },
+          { role: 'user', content: 'First user reply' },
+          { role: 'assistant', content: 'Response' },
+          { role: 'user', content: 'Second user message' },
+        ],
+        enableCache: true,
+      })
+
+      const callArgs = mockAnthropicCreate.mock.calls[0][0]
+
+      // assistant at idx=0 should NOT have cache_control
+      expect(typeof callArgs.messages[0].content).toBe('string')
+      expect(callArgs.messages[0].content).toBe('Opening biographer question')
+
+      // first user message at idx=1 should have cache_control
+      expect(Array.isArray(callArgs.messages[1].content)).toBe(true)
+      expect(callArgs.messages[1].content[0].cache_control).toEqual({ type: 'ephemeral' })
+      expect(callArgs.messages[1].content[0].text).toBe('First user reply')
+
+      // remaining messages should be plain strings
+      expect(typeof callArgs.messages[2].content).toBe('string')
+      expect(typeof callArgs.messages[3].content).toBe('string')
+    })
+
     it('applies cache_control to system prompt and first message when enableCache=true', async () => {
       mockAnthropicCreate.mockResolvedValueOnce({
         content: [{ type: 'text', text: '{"response": "test", "wrap": false}' }],
