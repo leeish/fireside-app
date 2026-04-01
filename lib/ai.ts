@@ -119,8 +119,7 @@ export async function chatComplete({
       ? [
           {
             type: 'text' as const,
-            text: system,
-            cache_control: { type: 'ephemeral' as const },
+            text: system
           },
         ]
       : system
@@ -134,8 +133,7 @@ export async function chatComplete({
             ? [
                 {
                   type: 'text' as const,
-                  text: msg.content,
-                  cache_control: { type: 'ephemeral' as const },
+                  text: msg.content
                 },
               ]
             : msg.content,
@@ -148,6 +146,7 @@ export async function chatComplete({
       temperature,
       system: systemParam,
       messages: messagesParam,
+      cache_control: { type: 'ephemeral' as const },
       output_config: {
         format: {
           type: 'json_schema',
