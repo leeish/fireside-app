@@ -77,7 +77,13 @@ export async function chatComplete({
   const model = process.env.CHAT_MODEL ?? 'claude-haiku-4-5-20251001'
 
   if (vendor === 'anthropic') {
-    const client = new Anthropic({ apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY })
+    const client = new Anthropic({
+      apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY,
+      fetch: enableCache ? async (url: string | URL | Request, init?: RequestInit) => {
+        console.log('[Anthropic raw request]', typeof init?.body === 'string' ? init.body.slice(0, 3000) : String(init?.body))
+        return globalThis.fetch(url as any, init)
+      } : undefined,
+    })
 
     // Apply cache control if enabled
     const systemParam = enableCache
@@ -114,13 +120,30 @@ export async function chatComplete({
       enableCache,
     }))
 
-    const message = await client.messages.create({
-      model,
-      max_tokens: maxTokens,
-      temperature,
-      system: systemParam,
-      messages: messagesParam,
-    })
+    const message = await client.messages.create(
+      {
+        model,
+        max_tokens: maxTokens,
+        temperature,
+        system: systemParam,
+        messages: messagesParam,
+        output_config: {
+          format: {
+            type: 'json_schema',
+            schema: {
+              type: 'object',
+              properties: {
+                response: { type: 'string' },
+                wrap: { type: 'boolean' },
+              },
+              required: ['response', 'wrap'],
+              additionalProperties: false,
+            },
+          },
+        },
+      },
+      enableCache ? { headers: { 'anthropic-beta': 'prompt-caching-2024-07-31' } } : undefined,
+    )
     const block = message.content[0]
     if (block.type !== 'text') throw new Error('Unexpected Claude response type')
     return {
