@@ -80,7 +80,8 @@ export async function chatComplete({
     const client = new Anthropic({
       apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY,
       fetch: enableCache ? async (url: string | URL | Request, init?: RequestInit) => {
-        console.log('[Anthropic raw request]', typeof init?.body === 'string' ? init.body.slice(0, 3000) : String(init?.body))
+        const body = typeof init?.body === 'string' ? init.body : ''
+        console.log('[Anthropic cache_control in body]', body.includes('"cache_control"'), '| body length:', body.length)
         return globalThis.fetch(url as any, init)
       } : undefined,
     })

@@ -85,6 +85,13 @@ export const chatRespond = inngest.createFunction(
       content: t.content,
     }))
 
+    // Guard: conversation must end with a user message or the API will reject it.
+    // This can happen if a previous chat-respond saved a biographer turn before this one runs.
+    if (chatMessages.length === 0 || chatMessages[chatMessages.length - 1].role !== 'user') {
+      console.warn('[chat-respond] skipping — last turn is not a user message', { conversationId, turns: chatMessages.length })
+      return { skipped: 'last turn is not user' }
+    }
+
     // Background context goes in the system prompt so it frames every turn
     const systemPrompt = promptContext
       ? `${CHAT_SYSTEM}\n\nBiographer's notes on this conversation topic (based on what this person has actually written):\n${promptContext}`
