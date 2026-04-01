@@ -142,30 +142,27 @@ export async function chatComplete({
         }))
       : messages
 
-    const message = await client.messages.create(
-      {
-        model,
-        max_tokens: maxTokens,
-        temperature,
-        system: systemParam,
-        messages: messagesParam,
-        output_config: {
-          format: {
-            type: 'json_schema',
-            schema: {
-              type: 'object',
-              properties: {
-                response: { type: 'string' },
-                wrap: { type: 'boolean' },
-              },
-              required: ['response', 'wrap'],
-              additionalProperties: false,
+    const message = await client.messages.create({
+      model,
+      max_tokens: maxTokens,
+      temperature,
+      system: systemParam,
+      messages: messagesParam,
+      output_config: {
+        format: {
+          type: 'json_schema',
+          schema: {
+            type: 'object',
+            properties: {
+              response: { type: 'string' },
+              wrap: { type: 'boolean' },
             },
+            required: ['response', 'wrap'],
+            additionalProperties: false,
           },
         },
       },
-      enableCache ? { headers: { 'anthropic-beta': 'prompt-caching-2024-07-31' } } : undefined,
-    )
+    } as any)
     const block = message.content[0]
     if (block.type !== 'text') throw new Error('Unexpected Claude response type')
     return {
