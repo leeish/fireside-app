@@ -169,12 +169,21 @@ export const enrichEntry = inngest.createFunction(
 
       // Generate and store embedding from the decrypted user response
       if (newEntry) {
-        const embedding = await generateEmbedding(responseText)
-        if (embedding) {
+        const embeddingResult = await generateEmbedding(responseText)
+        if (embeddingResult) {
           await supabase
             .from('entries')
-            .update({ embedding: JSON.stringify(embedding) })
+            .update({ embedding: JSON.stringify(embeddingResult.embedding) })
             .eq('id', newEntry.id)
+          void logTokenUsage(supabase, {
+            userId: turn.user_id,
+            conversationId: turn.conversation_id,
+            inngestFunction: 'enrich-entry',
+            model: 'text-embedding-3-small',
+            inputTokens: embeddingResult.inputTokens,
+            outputTokens: 0,
+            purpose: 'entry embedding',
+          })
         }
       }
     }

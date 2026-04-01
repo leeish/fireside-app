@@ -113,17 +113,30 @@ export const selectNextPrompt = inngest.createFunction(
       // Embed all 5 thread descriptions in parallel
       const embedResults = await Promise.all(
         candidates.map(async (candidate) => {
-          const embedding = await generateEmbedding(candidate.description)
-          return { candidate, embedding }
+          const result = await generateEmbedding(candidate.description)
+          return { candidate, result }
         })
       )
 
+      // Log embedding token usage for all thread queries
+      const totalEmbedTokens = embedResults.reduce((sum, { result }) => sum + (result?.inputTokens ?? 0), 0)
+      if (totalEmbedTokens > 0) {
+        void logTokenUsage(supabase, {
+          userId,
+          inngestFunction: 'select-next-prompt',
+          model: 'text-embedding-3-small',
+          inputTokens: totalEmbedTokens,
+          outputTokens: 0,
+          purpose: 'thread embedding',
+        })
+      }
+
       // Run similarity search for each thread in parallel (top 2 entries per thread)
       const matchResults = await Promise.all(
-        embedResults.map(async ({ candidate, embedding }) => {
-          if (!embedding) return { candidate, rows: [] }
+        embedResults.map(async ({ candidate, result }) => {
+          if (!result) return { candidate, rows: [] }
           const { data: rows } = await supabase.rpc('match_entries', {
-            query_embedding: JSON.stringify(embedding),
+            query_embedding: JSON.stringify(result.embedding),
             match_user_id: userId,
             match_count: 2,
           })

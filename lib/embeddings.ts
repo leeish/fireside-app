@@ -3,10 +3,15 @@ import OpenAI from 'openai'
 const EMBEDDING_MODEL = 'text-embedding-3-small'
 const MAX_INPUT_CHARS = 6000
 
+export interface EmbeddingResult {
+  embedding: number[]
+  inputTokens: number
+}
+
 // Generates a vector embedding for the given text using OpenAI text-embedding-3-small.
 // Returns null on failure — a missing embedding should never block an entry from saving.
 // The backfill script (scripts/backfill-entry-embeddings.ts) catches any persistent misses.
-export async function generateEmbedding(text: string): Promise<number[] | null> {
+export async function generateEmbedding(text: string): Promise<EmbeddingResult | null> {
   try {
     const isLocal = !!process.env.LOCAL_AI_URL
     if (isLocal) return null  // local dev — skip embeddings
@@ -16,7 +21,10 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
     if (!input) return null
 
     const response = await client.embeddings.create({ model: EMBEDDING_MODEL, input })
-    return response.data[0].embedding
+    return {
+      embedding: response.data[0].embedding,
+      inputTokens: response.usage.total_tokens,
+    }
   } catch (err) {
     console.error('[embeddings] generateEmbedding failed:', err)
     return null

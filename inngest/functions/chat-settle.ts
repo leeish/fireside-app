@@ -163,12 +163,21 @@ export const chatSettle = inngest.createFunction(
 
     const targetEntryId = entryId ?? newEntryId
     if (targetEntryId && userText) {
-      const embedding = await generateEmbedding(userText)
-      if (embedding) {
+      const embeddingResult = await generateEmbedding(userText)
+      if (embeddingResult) {
         await supabase
           .from('entries')
-          .update({ embedding: JSON.stringify(embedding) })
+          .update({ embedding: JSON.stringify(embeddingResult.embedding) })
           .eq('id', targetEntryId)
+        void logTokenUsage(supabase, {
+          userId,
+          conversationId,
+          inngestFunction: 'chat-settle',
+          model: 'text-embedding-3-small',
+          inputTokens: embeddingResult.inputTokens,
+          outputTokens: 0,
+          purpose: 'entry embedding',
+        })
       }
     }
 
