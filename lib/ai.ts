@@ -120,20 +120,6 @@ export async function chatComplete({
       temperature,
       system: systemParam,
       messages: messagesParam,
-      output_config: {
-        format: {
-          type: 'json_schema',
-          schema: {
-            type: 'object',
-            properties: {
-              response: { type: 'string' },
-              wrap: { type: 'boolean' },
-            },
-            required: ['response', 'wrap'],
-            additionalProperties: false,
-          },
-        },
-      },
     })
     const block = message.content[0]
     if (block.type !== 'text') throw new Error('Unexpected Claude response type')
