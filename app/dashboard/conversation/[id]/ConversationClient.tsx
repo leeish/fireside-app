@@ -41,6 +41,7 @@ export default function ConversationClient({
   const bottomRef = useRef<HTMLDivElement>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const lastTurnCountRef = useRef(initialTurns.length)
+  const pollStartRef = useRef<number | null>(null)
 
   useEffect(() => {
     setIsSpeechSupported('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
@@ -61,6 +62,14 @@ export default function ConversationClient({
     }
 
     pollRef.current = setInterval(async () => {
+      const elapsed = Date.now() - (pollStartRef.current ?? Date.now())
+      if (elapsed > 30000) {
+        clearInterval(pollRef.current!)
+        setWaitingForAI(false)
+        setError('The biographer didn\'t respond in time. Please try again.')
+        return
+      }
+
       try {
         const res = await fetch(`/api/conversation/${conversationId}/turns`)
         if (!res.ok) return
@@ -137,6 +146,7 @@ export default function ConversationClient({
     lastTurnCountRef.current = turns.length + 1
     setResponse('')
     setLoading(false)
+    pollStartRef.current = Date.now()
     setWaitingForAI(true)
   }
 
