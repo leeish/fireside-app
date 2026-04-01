@@ -105,6 +105,15 @@ export async function chatComplete({
         }))
       : messages
 
+    console.log('[chatComplete] cache debug', JSON.stringify({
+      hasSystemCacheControl: Array.isArray(systemParam) && !!(systemParam[0] as any)?.cache_control,
+      systemType: Array.isArray(systemParam) ? 'array' : 'string',
+      msg0ContentIsArray: Array.isArray(messagesParam[0]?.content),
+      msg0HasCacheControl: Array.isArray(messagesParam[0]?.content) && !!(messagesParam[0].content as any[])[0]?.cache_control,
+      messageCount: messagesParam.length,
+      enableCache,
+    }))
+
     const message = await client.messages.create({
       model,
       max_tokens: maxTokens,
