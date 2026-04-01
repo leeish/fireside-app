@@ -2,6 +2,7 @@ import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt, encrypt } from '@/lib/crypto'
 import { getAIClient, logTokenUsage } from '@/lib/ai'
+import { generateEmbedding } from '@/lib/embeddings'
 import { mergeExtraction, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 
 type ChatSettleEvent = {
@@ -41,13 +42,22 @@ export const chatSettle = inngest.createFunction(
     if (!turns || turns.length === 0) return { skipped: 'no turns found' }
 
     // Build full transcript with decrypted user turns
-    const transcript = turns
-      .map(t => {
-        const content = t.role === 'user'
-          ? (() => { try { return decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return '' } })()
-          : t.content
-        return `${t.role === 'user' ? 'Person' : 'Biographer'}: ${content}`
-      })
+    const decryptedTurns = turns.map(t => ({
+      role: t.role,
+      content: t.role === 'user'
+        ? (() => { try { return decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return '' } })()
+        : t.content,
+    }))
+
+    const transcript = decryptedTurns
+      .map(t => `${t.role === 'user' ? 'Person' : 'Biographer'}: ${t.content}`)
+      .join('\n\n')
+
+    // User-only text for embedding — captures what the person said, not the questions asked
+    const userText = decryptedTurns
+      .filter(t => t.role === 'user')
+      .map(t => t.content)
+      .filter(Boolean)
       .join('\n\n')
 
     // Run extraction on full conversation transcript
@@ -88,17 +98,11 @@ export const chatSettle = inngest.createFunction(
     const updatedGraph = mergeExtraction(currentGraph, extraction)
     const newVersion = (narrativeRow?.graph_version ?? 0) + 1
 
-    // Synthesis is deferred to batch-process-pending. Preserve existing rolling_summary
-    // since mergeExtraction doesn't update it — only synthesis does.
     const updateData: Record<string, unknown> = {
       user_id: userId,
       graph: encrypt(JSON.stringify(updatedGraph), process.env.MEMORY_ENCRYPTION_KEY!),
       graph_version: newVersion,
       updated_at: new Date().toISOString(),
-    }
-    // Only update rolling_summary if it's non-empty; otherwise preserve the existing one
-    if (updatedGraph.rolling_summary) {
-      updateData.rolling_summary = encrypt(updatedGraph.rolling_summary, process.env.MEMORY_ENCRYPTION_KEY!)
     }
 
     await supabase
@@ -127,6 +131,45 @@ export const chatSettle = inngest.createFunction(
         status: 'pending',
       }))
       await supabase.from('clarifications').insert(clarifications)
+    }
+
+    // Create entry row if it doesn't exist, then generate embedding from user text
+    const { data: existingEntry } = await supabase
+      .from('entries')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .maybeSingle()
+
+    const entryId = existingEntry?.id ?? null
+    let newEntryId: string | null = null
+
+    if (!existingEntry) {
+      const now = new Date().toISOString()
+      const { data: newEntry } = await supabase
+        .from('entries')
+        .insert({
+          conversation_id: conversationId,
+          user_id: userId,
+          status: 'settled',
+          origin: 'biographer',
+          era: extraction.era ?? null,
+          themes: extraction.themes ?? [],
+          settled_at: now,
+        })
+        .select('id')
+        .single()
+      newEntryId = newEntry?.id ?? null
+    }
+
+    const targetEntryId = entryId ?? newEntryId
+    if (targetEntryId && userText) {
+      const embedding = await generateEmbedding(userText)
+      if (embedding) {
+        await supabase
+          .from('entries')
+          .update({ embedding: JSON.stringify(embedding) })
+          .eq('id', targetEntryId)
+      }
     }
 
     // Queue conversation for batch processing — synthesis and prompt selection happen at midnight ET

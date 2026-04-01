@@ -78,9 +78,6 @@ export const onboardingSeed = inngest.createFunction(
         user_id: userId,
         graph: encrypt(JSON.stringify(seededGraph), process.env.MEMORY_ENCRYPTION_KEY!),
         graph_version: 1,
-        rolling_summary: seededGraph.rolling_summary
-          ? encrypt(seededGraph.rolling_summary, process.env.MEMORY_ENCRYPTION_KEY!)
-          : '',
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id' })
 

@@ -108,9 +108,6 @@ export async function PATCH(
       user_id: user.id,
       graph: encrypt(JSON.stringify(updatedGraph), process.env.MEMORY_ENCRYPTION_KEY!),
       graph_version: newVersion,
-      rolling_summary: updatedGraph.rolling_summary
-        ? encrypt(updatedGraph.rolling_summary, process.env.MEMORY_ENCRYPTION_KEY!)
-        : null,
       updated_at: now,
     }, { onConflict: 'user_id' })
 

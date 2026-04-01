@@ -1,8 +1,5 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
-import { decrypt, encrypt } from '@/lib/crypto'
-import { synthesizeGraph } from '@/lib/synthesize-graph'
-import type { NarrativeGraph } from '@/lib/graph'
 
 type BatchProcessPendingEvent = {
   data?: Record<string, unknown>
@@ -35,51 +32,15 @@ export const batchProcessPending = inngest.createFunction(
     const userIds = [...new Set(queuedConversations.map(c => c.user_id))]
     let processedCount = 0
 
-    // Process each user's queued conversations
     for (const userId of userIds) {
       const userConversations = queuedConversations.filter(c => c.user_id === userId)
 
-      // Load narrative graph
-      const { data: narrativeRow } = await supabase
-        .from('narratives')
-        .select('graph, rolling_summary, graph_version')
-        .eq('user_id', userId)
-        .single()
-
-      const currentGraph: NarrativeGraph = narrativeRow?.graph
-        ? JSON.parse(decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!))
-        : ({} as NarrativeGraph)
-
-      // Synthesis: update rolling_summary
-      try {
-        const synthesis = await synthesizeGraph(currentGraph)
-
-        if (synthesis.text) {
-          const { error } = await supabase
-            .from('narratives')
-            .update({
-              rolling_summary: encrypt(synthesis.text, process.env.MEMORY_ENCRYPTION_KEY!),
-              updated_at: new Date().toISOString(),
-            })
-            .eq('user_id', userId)
-
-          if (error) {
-            console.error(`Failed to update rolling_summary for user ${userId}:`, error)
-          }
-        }
-      } catch (err) {
-        console.error(`Synthesis failed for user ${userId}:`, err)
-        // Continue to next user even if synthesis fails — don't block prompt selection
-      }
-
-      // Prompt selection: trigger select-next-prompt for this user
       try {
         await inngest.send({
           name: 'fireside/prompt.select',
           data: { userId },
         })
 
-        // Mark conversations as no longer queued for batch
         await supabase
           .from('conversations')
           .update({ queued_for_batch: false })

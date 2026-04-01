@@ -2,6 +2,7 @@ import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt, encrypt } from '@/lib/crypto'
 import { getAIClient, logTokenUsage } from '@/lib/ai'
+import { generateEmbedding } from '@/lib/embeddings'
 import { mergeExtraction, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 
 type EnrichEntryEvent = { data: { turnId: string } }
@@ -99,17 +100,11 @@ export const enrichEntry = inngest.createFunction(
     const updatedGraph = mergeExtraction(currentGraph, extraction)
     const newVersion = (narrativeRow?.graph_version ?? 0) + 1
 
-    // Synthesis is deferred to batch-process-pending. Preserve existing rolling_summary
-    // since mergeExtraction doesn't update it — only synthesis does.
     const updateData: Record<string, unknown> = {
       user_id: turn.user_id,
       graph: encrypt(JSON.stringify(updatedGraph), process.env.MEMORY_ENCRYPTION_KEY!),
       graph_version: newVersion,
       updated_at: new Date().toISOString(),
-    }
-    // Only update rolling_summary if it's non-empty; otherwise preserve the existing one
-    if (updatedGraph.rolling_summary) {
-      updateData.rolling_summary = encrypt(updatedGraph.rolling_summary, process.env.MEMORY_ENCRYPTION_KEY!)
     }
 
     await supabase
@@ -158,7 +153,7 @@ export const enrichEntry = inngest.createFunction(
       .maybeSingle()
 
     if (!existingEntry) {
-      await supabase
+      const { data: newEntry } = await supabase
         .from('entries')
         .insert({
           conversation_id: turn.conversation_id,
@@ -169,6 +164,19 @@ export const enrichEntry = inngest.createFunction(
           themes: extraction.themes ?? [],
           settled_at: now,
         })
+        .select('id')
+        .single()
+
+      // Generate and store embedding from the decrypted user response
+      if (newEntry) {
+        const embedding = await generateEmbedding(responseText)
+        if (embedding) {
+          await supabase
+            .from('entries')
+            .update({ embedding: JSON.stringify(embedding) })
+            .eq('id', newEntry.id)
+        }
+      }
     }
 
     // Detect completeness gaps and store pending clarifications

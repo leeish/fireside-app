@@ -1,13 +1,29 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { claudeComplete, logTokenUsage, getClaudeClient, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
-import { decrypt, encrypt } from '@/lib/crypto'
+import { decrypt } from '@/lib/crypto'
 import { buildSystemPrompt } from '@/lib/craft-system'
-import { synthesizeGraph } from '@/lib/synthesize-graph'
+import { generateEmbedding } from '@/lib/embeddings'
 import type { NarrativeGraph } from '@/lib/graph'
 import { selectTopThreads } from './select-next-prompt-engine'
 
 type SelectNextPromptEvent = { data: { userId: string; skipScheduling?: boolean } }
+
+// ─── Topic-scoped notes ───────────────────────────────────────
+const TOPIC_NOTES_SYSTEM = `You are a biographer's research assistant preparing working notes before a prompt selection session.
+
+You will be given a set of candidate topics the biographer is considering exploring next, and the actual journal entries this person has written that are relevant to each topic.
+
+Your job is to write focused research notes on each candidate topic — what this person has actually said about it, what feels unfinished or unresolved, and what specific angle might be worth exploring further in the next question.
+
+CRITICAL RULES:
+- Read all entries for a topic collectively before forming any observation. A single entry is not the full picture. If entries show tension, complexity, or contradiction about a topic, capture that honestly — "mixed feelings about his dad" is more accurate and more useful than either entry alone.
+- Only write what is supported by the entry text provided. Do not infer, extrapolate, or fill gaps with plausible-sounding detail.
+- If an entry touches a topic only briefly, say so — do not expand it into something it isn't.
+- Note absences plainly: if a topic has been mentioned but never landed on, name that directly.
+- These notes will be used to write the next question this person receives. Accuracy matters more than eloquence. A wrong note leads to a wrong question.
+
+Write 3-5 sentences per candidate topic. Stay grounded. Stay specific.`
 
 // ─── Quality check ────────────────────────────────────────────
 const QUALITY_CHECK_PROMPT = `Evaluate this question and return JSON: { "pass": boolean, "reason": string }
@@ -64,7 +80,7 @@ export const selectNextPrompt = inngest.createFunction(
     // Load narrative graph
     const { data: narrativeRow } = await supabase
       .from('narratives')
-      .select('graph, rolling_summary')
+      .select('graph')
       .eq('user_id', userId)
       .single()
 
@@ -85,35 +101,111 @@ export const selectNextPrompt = inngest.createFunction(
       .neq('delivery_state', 'queued')
       .order('created_at', { ascending: true })
 
-    // Synthesize fresh biographer notes right before generation — this is the only
-    // place rolling_summary is actually needed, so we defer synthesis until here.
     const { model: claudeModel } = getClaudeClient()
-
-    if (graph.total_entries > 0) {
-      const synthResult = await withUserKeyFallback(userId, supabase, userApiKey, (key) => synthesizeGraph(graph, key))
-      const freshSummary = synthResult.text
-      graph.rolling_summary = freshSummary
-
-      await logTokenUsage(supabase, {
-        userId,
-        inngestFunction: 'select-next-prompt',
-        model: claudeModel,
-        inputTokens: synthResult.inputTokens,
-        outputTokens: synthResult.outputTokens,
-        purpose: 'graph synthesis',
-      })
-
-      // Persist so chat-respond can use it as background context
-      await supabase
-        .from('narratives')
-        .update({ rolling_summary: encrypt(freshSummary, process.env.MEMORY_ENCRYPTION_KEY!), updated_at: new Date().toISOString() })
-        .eq('user_id', userId)
-    }
 
     // Scoring engine — returns top 5 candidates for Claude to choose from
     const candidates = selectTopThreads(graph)
 
-    // Build generation prompt
+    // ─── RAG: retrieve relevant entries per candidate thread ──────────
+    let promptContext = ''
+
+    if (graph.total_entries > 0) {
+      // Embed all 5 thread descriptions in parallel
+      const embedResults = await Promise.all(
+        candidates.map(async (candidate) => {
+          const embedding = await generateEmbedding(candidate.description)
+          return { candidate, embedding }
+        })
+      )
+
+      // Run similarity search for each thread in parallel (top 2 entries per thread)
+      const matchResults = await Promise.all(
+        embedResults.map(async ({ candidate, embedding }) => {
+          if (!embedding) return { candidate, rows: [] }
+          const { data: rows } = await supabase.rpc('match_entries', {
+            query_embedding: JSON.stringify(embedding),
+            match_user_id: userId,
+            match_count: 2,
+          })
+          return { candidate, rows: rows ?? [] }
+        })
+      )
+
+      // Collect unique conversation IDs across all matches
+      const seenEntryIds = new Set<string>()
+      const uniqueMatches: Array<{ entryId: string; conversationId: string }> = []
+      for (const { rows } of matchResults) {
+        for (const row of rows) {
+          if (!seenEntryIds.has(row.id)) {
+            seenEntryIds.add(row.id)
+            uniqueMatches.push({ entryId: row.id, conversationId: row.conversation_id })
+          }
+        }
+      }
+
+      // Fetch and decrypt user turns for each matched entry
+      const entryTextMap = new Map<string, string>()
+      await Promise.all(
+        uniqueMatches.map(async ({ entryId, conversationId }) => {
+          const { data: turns } = await supabase
+            .from('turns')
+            .select('content')
+            .eq('conversation_id', conversationId)
+            .eq('role', 'user')
+            .order('created_at', { ascending: true })
+
+          if (!turns || turns.length === 0) return
+
+          const text = turns
+            .map(t => { try { return decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return '' } })
+            .filter(Boolean)
+            .join('\n\n')
+
+          if (text) entryTextMap.set(entryId, text)
+        })
+      )
+
+      // Build context block per candidate thread
+      const threadBlocks = matchResults
+        .map(({ candidate, rows }) => {
+          const entries = rows
+            .map((r: { id: string }) => entryTextMap.get(r.id))
+            .filter(Boolean) as string[]
+
+          if (entries.length === 0) {
+            return `Thread: ${candidate.description}\nNo prior entries found on this topic.`
+          }
+
+          return `Thread: ${candidate.description}\nRelevant entries:\n${entries.join('\n---\n')}`
+        })
+        .join('\n\n===\n\n')
+
+      // Generate topic-scoped notes with Haiku
+      if (threadBlocks) {
+        const notesResult = await withUserKeyFallback(userId, supabase, userApiKey, (key) =>
+          claudeComplete({
+            system: TOPIC_NOTES_SYSTEM,
+            user: threadBlocks,
+            temperature: 0.3,
+            maxTokens: 1500,
+            apiKey: key,
+          })
+        )
+
+        promptContext = notesResult.text
+
+        await logTokenUsage(supabase, {
+          userId,
+          inngestFunction: 'select-next-prompt',
+          model: 'claude-haiku-4-5-20251001',
+          inputTokens: notesResult.inputTokens,
+          outputTokens: notesResult.outputTokens,
+          purpose: 'topic-scoped notes',
+        })
+      }
+    }
+
+    // ─── Build generation prompt ──────────────────────────────────────
     const systemPrompt = buildSystemPrompt(graph)
 
     const graphContext = `
@@ -129,7 +221,7 @@ Open threads (topics worth returning to): ${(graph.open_threads ?? []).join('; '
 Deflections: ${(graph.deflections ?? []).join('; ')}
 Last entry weight: ${graph.last_entry_weight ?? 'unknown'}
 Faith: ${JSON.stringify(graph.faith)}
-Recent summary: ${graph.rolling_summary ?? 'No entries yet'}
+${promptContext ? `Biographer's notes on candidate topics (based on what this person actually wrote):\n${promptContext}` : 'No prior entries yet.'}
 `.trim()
 
     const historyBlock = promptHistory && promptHistory.length > 0
@@ -233,7 +325,7 @@ Return ONLY valid JSON, no markdown, no explanation:
       ? `Selected: ${selectedCandidate.description}`
       : 'Automatic selection based on conversation history'
 
-    // Insert queued_prompt using Claude's actual selection
+    // Insert queued_prompt with topic-scoped notes stored as prompt_context
     const { data: qp, error: qpError } = await supabase
       .from('queued_prompts')
       .insert({
@@ -244,6 +336,7 @@ Return ONLY valid JSON, no markdown, no explanation:
         delivery_state: 'queued',
         model_used: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
         reasoning,
+        prompt_context: promptContext || null,
       })
       .select('id')
       .single()
@@ -257,7 +350,6 @@ Return ONLY valid JSON, no markdown, no explanation:
       .eq('id', userId)
 
     if (!skipScheduling) {
-      // Schedule delivery based on cadence
       const CADENCE_DAYS: Record<string, number> = {
         daily: 1,
         few_per_week: 3,
@@ -267,19 +359,16 @@ Return ONLY valid JSON, no markdown, no explanation:
       const deliverAt = new Date()
       deliverAt.setDate(deliverAt.getDate() + deliverInDays)
 
-      // Check if delivery is already scheduled in the future
       if (user.next_prompt_delivery_date && new Date(user.next_prompt_delivery_date) > deliverAt) {
         return { userId, queuedPromptId: qp.id, skipped: 'delivery already scheduled' }
       }
 
-      // Schedule delivery and update user's next delivery timestamp
       await inngest.send({
         name: 'fireside/prompt.deliver',
         data: { userId },
         ts: deliverAt.getTime(),
       })
 
-      // Track the scheduled delivery date
       await supabase
         .from('users')
         .update({ next_prompt_delivery_date: deliverAt.toISOString() })

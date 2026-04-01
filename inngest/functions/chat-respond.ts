@@ -44,9 +44,26 @@ export const chatRespond = inngest.createFunction(
     // Load narrative graph for background context
     const { data: narrative } = await supabase
       .from('narratives')
-      .select('graph, rolling_summary')
+      .select('graph')
       .eq('user_id', userId)
       .single()
+
+    // Load topic-scoped notes from the queued_prompt that opened this conversation
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select('queued_prompt_id')
+      .eq('id', conversationId)
+      .single()
+
+    let promptContext: string | null = null
+    if (conversation?.queued_prompt_id) {
+      const { data: qp } = await supabase
+        .from('queued_prompts')
+        .select('prompt_context')
+        .eq('id', conversation.queued_prompt_id)
+        .single()
+      promptContext = qp?.prompt_context ?? null
+    }
 
     // Load all turns
     const { data: rawTurns } = await supabase
@@ -69,11 +86,8 @@ export const chatRespond = inngest.createFunction(
     }))
 
     // Background context goes in the system prompt so it frames every turn
-    const rollingSummary = narrative?.rolling_summary
-      ? decrypt(narrative.rolling_summary as string, process.env.MEMORY_ENCRYPTION_KEY!)
-      : null
-    const systemPrompt = rollingSummary
-      ? `${CHAT_SYSTEM}\n\nBackground on this person: ${rollingSummary}`
+    const systemPrompt = promptContext
+      ? `${CHAT_SYSTEM}\n\nBiographer's notes on this conversation topic (based on what this person has actually written):\n${promptContext}`
       : CHAT_SYSTEM
 
     const { text: raw, inputTokens, outputTokens } = await withUserKeyFallback(userId, supabase, userApiKey, (key) =>
