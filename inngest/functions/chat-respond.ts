@@ -49,7 +49,11 @@ Return JSON with exactly these fields:
 
 const CONTEXT_ADDENDUM_SYSTEM = `You are a biographer's research assistant supporting a live conversation.
 
-You have been given excerpts from this person's past writing that are relevant to the current conversation topic. Write 2-3 sentences the biographer should carry in mind — drawn entirely from these past entries, not from what is being said right now. Be specific: name people, places, or memories from the actual entries. Do not generalize. Do not summarize the current conversation. Write in third person as notes about the person, not addressed to them.`
+You will be given what the person has been saying recently and excerpts from their past writing. Your job is to surface what the past entries reveal that connects to or enriches the current conversation — patterns, people, places, or moments that Claude already knows from prior sessions but not from the current one.
+
+Do not re-state or summarize what the person said in the current conversation. Claude already has that in the messages. Only write what comes from the past entries.
+
+Be specific: name people, places, or memories from the actual past entries. Do not generalize. Write 2-3 sentences in third person as notes about the person, not addressed to them.`
 
 // Pure helper — exported for testing
 export function shouldRefreshContext(realUserTurnCount: number, interval: number): boolean {
@@ -230,7 +234,7 @@ export const chatRespond = inngest.createFunction(
                 const addendumResult = await withUserKeyFallback(userId, supabase, userApiKey, (key) =>
                   claudeComplete({
                     system: CONTEXT_ADDENDUM_SYSTEM,
-                    user: `Relevant past entries:\n${retrievedText}\n\nWrite the context note.`,
+                    user: `What they have been saying recently:\n${queryText}\n\nRelevant past entries:\n${retrievedText}\n\nWrite the context note.`,
                     temperature: 0.3,
                     maxTokens: 200,
                     apiKey: key,
