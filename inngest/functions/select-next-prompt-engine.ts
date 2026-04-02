@@ -14,11 +14,288 @@ export interface ScoredThread {
 
 export const KNOWN_ERAS = ['childhood', 'youth', 'mission', 'marriage', 'parenthood', 'career']
 
+// ─── Coverage helpers ─────────────────────────────────────────
+function hasPersonWithRelationship(g: NarrativeGraph, ...terms: string[]): boolean {
+  return Object.values(g.people ?? {}).some(p =>
+    terms.some(t => p.relationship?.toLowerCase().includes(t))
+  )
+}
+
+function hasEraEntries(g: NarrativeGraph, era: string, min = 1): boolean {
+  return (g.eras[era]?.entries ?? 0) >= min
+}
+
+// ─── Life curriculum ─────────────────────────────────────────
+// Universal life territories every biography should cover.
+// Scored by gap: uncovered items compete for the single curriculum slot in the top-5.
+// Coverage logic:
+//   totalEntries < 30 → covered if thread_id appears in prompt history (1 prompt is enough)
+//   totalEntries >= 30 → covered if in history OR graph shows richness signal for this domain
+
+interface CurriculumItem {
+  id: string
+  description: string
+  questionType: QType
+  baseScore: number
+  coveredIf: (g: NarrativeGraph, historyIds: string[], totalEntries: number) => boolean
+}
+
+const h = (id: string) => (historyIds: string[]) => historyIds.includes(id)
+
+export const LIFE_CURRICULUM: CurriculumItem[] = [
+  {
+    id: 'curriculum:parents_as_people',
+    description: 'Parents as full people before they were your parents -- who they were, where they came from',
+    questionType: 'depth',
+    baseScore: 26,
+    coveredIf: (g, ids, n) => h('curriculum:parents_as_people')(ids) ||
+      (n >= 30 && hasPersonWithRelationship(g, 'father', 'mother', 'dad', 'mom', 'parent', 'stepfather', 'stepmother')),
+  },
+  {
+    id: 'curriculum:siblings',
+    description: 'Sibling relationships growing up',
+    questionType: 'relationship',
+    baseScore: 24,
+    coveredIf: (g, ids, n) => h('curriculum:siblings')(ids) ||
+      (n >= 30 && hasPersonWithRelationship(g, 'brother', 'sister', 'sibling')),
+  },
+  {
+    id: 'curriculum:extended_family',
+    description: 'Grandparents, aunts, uncles -- the wider family circle',
+    questionType: 'relationship',
+    baseScore: 22,
+    coveredIf: (g, ids, n) => h('curriculum:extended_family')(ids) ||
+      (n >= 30 && hasPersonWithRelationship(g, 'grandparent', 'grandmother', 'grandfather', 'aunt', 'uncle', 'cousin')),
+  },
+  {
+    id: 'curriculum:childhood_home',
+    description: 'The physical home(s) and neighborhood of childhood',
+    questionType: 'sensory',
+    baseScore: 24,
+    coveredIf: (g, ids, n) => h('curriculum:childhood_home')(ids) ||
+      (n >= 30 && hasEraEntries(g, 'childhood', 2)),
+  },
+  {
+    id: 'curriculum:elementary_school',
+    description: 'Elementary school years -- friends, teachers, daily life',
+    questionType: 'era',
+    baseScore: 20,
+    coveredIf: (g, ids, n) => h('curriculum:elementary_school')(ids) ||
+      (n >= 30 && hasEraEntries(g, 'childhood', 2)),
+  },
+  {
+    id: 'curriculum:high_school_identity',
+    description: 'High school years -- who they were, who they ran with',
+    questionType: 'era',
+    baseScore: 22,
+    coveredIf: (g, ids, n) => h('curriculum:high_school_identity')(ids) ||
+      (n >= 30 && hasEraEntries(g, 'youth', 2)),
+  },
+  {
+    id: 'curriculum:school_friendships',
+    description: 'Close friendships during school years',
+    questionType: 'relationship',
+    baseScore: 20,
+    coveredIf: (g, ids) => h('curriculum:school_friendships')(ids),
+  },
+  {
+    id: 'curriculum:first_romance',
+    description: 'First romantic experiences',
+    questionType: 'depth',
+    baseScore: 18,
+    coveredIf: (g, ids) => h('curriculum:first_romance')(ids),
+  },
+  {
+    id: 'curriculum:post_high_school',
+    description: 'The immediate transition after high school',
+    questionType: 'era',
+    baseScore: 22,
+    coveredIf: (g, ids, n) => h('curriculum:post_high_school')(ids) ||
+      (n >= 30 && hasEraEntries(g, 'youth', 2)),
+  },
+  {
+    id: 'curriculum:college_years',
+    description: 'College or early adult years',
+    questionType: 'era',
+    baseScore: 20,
+    coveredIf: (g, ids, n) => h('curriculum:college_years')(ids) ||
+      (n >= 30 && hasEraEntries(g, 'youth', 2)),
+  },
+  {
+    id: 'curriculum:leaving_home',
+    description: 'The experience of leaving home for the first time',
+    questionType: 'depth',
+    baseScore: 22,
+    coveredIf: (g, ids) => h('curriculum:leaving_home')(ids),
+  },
+  {
+    id: 'curriculum:first_job',
+    description: 'First paying job or work experience',
+    questionType: 'origin',
+    baseScore: 22,
+    coveredIf: (g, ids, n) => h('curriculum:first_job')(ids) ||
+      (n >= 30 && hasEraEntries(g, 'career', 1)),
+  },
+  {
+    id: 'curriculum:career_arc',
+    description: 'How the career unfolded -- the path taken and why',
+    questionType: 'depth',
+    baseScore: 20,
+    coveredIf: (g, ids, n) => h('curriculum:career_arc')(ids) ||
+      (n >= 30 && hasEraEntries(g, 'career', 2)),
+  },
+  {
+    id: 'curriculum:work_identity',
+    description: 'What work means to them beyond the paycheck',
+    questionType: 'depth',
+    baseScore: 18,
+    coveredIf: (g, ids, n) => h('curriculum:work_identity')(ids) ||
+      (n >= 30 && hasEraEntries(g, 'career', 2)),
+  },
+  {
+    id: 'curriculum:how_they_met',
+    description: 'How they met their partner',
+    questionType: 'relationship',
+    baseScore: 22,
+    coveredIf: (g, ids, n) => h('curriculum:how_they_met')(ids) ||
+      (n >= 30 && (hasEraEntries(g, 'marriage', 1) || hasPersonWithRelationship(g, 'spouse', 'wife', 'husband', 'partner'))),
+  },
+  {
+    id: 'curriculum:early_relationship',
+    description: 'Early years of the relationship before marriage/children',
+    questionType: 'depth',
+    baseScore: 20,
+    coveredIf: (g, ids, n) => h('curriculum:early_relationship')(ids) ||
+      (n >= 30 && hasEraEntries(g, 'marriage', 2)),
+  },
+  {
+    id: 'curriculum:becoming_parent',
+    description: 'The experience of becoming a parent for the first time',
+    questionType: 'depth',
+    baseScore: 22,
+    coveredIf: (g, ids, n) => h('curriculum:becoming_parent')(ids) ||
+      (n >= 30 && (hasEraEntries(g, 'parenthood', 1) || hasPersonWithRelationship(g, 'son', 'daughter', 'child'))),
+  },
+  {
+    id: 'curriculum:adult_friendships',
+    description: 'Deep adult friendships outside family',
+    questionType: 'relationship',
+    baseScore: 20,
+    coveredIf: (g, ids, n) => h('curriculum:adult_friendships')(ids) ||
+      (n >= 30 && Object.values(g.people ?? {}).some(p => p.relationship?.toLowerCase().includes('friend') && p.mentions >= 2)),
+  },
+  {
+    id: 'curriculum:hobbies_origins',
+    description: 'Where a hobby or passion actually started',
+    questionType: 'origin',
+    baseScore: 20,
+    coveredIf: (g, ids, n) => h('curriculum:hobbies_origins')(ids) ||
+      (n >= 30 && (g.interests ?? []).length > 0),
+  },
+  {
+    id: 'curriculum:defining_values',
+    description: 'A belief or value that guides major decisions',
+    questionType: 'depth',
+    baseScore: 20,
+    coveredIf: (g, ids) => h('curriculum:defining_values')(ids),
+  },
+  {
+    id: 'curriculum:financial_story',
+    description: 'Relationship with money -- how it was framed growing up',
+    questionType: 'origin',
+    baseScore: 18,
+    coveredIf: (g, ids) => h('curriculum:financial_story')(ids),
+  },
+  {
+    id: 'curriculum:health_experiences',
+    description: 'Significant health experiences',
+    questionType: 'depth',
+    baseScore: 18,
+    coveredIf: (g, ids, n) => h('curriculum:health_experiences')(ids) ||
+      (n >= 30 && (g.themes ?? []).some(t => /health|illness|medical|hospital|surgery/i.test(t))),
+  },
+  {
+    id: 'curriculum:travel_meaningful',
+    description: 'Places traveled or lived that actually mattered',
+    questionType: 'sensory',
+    baseScore: 18,
+    coveredIf: (g, ids, n) => h('curriculum:travel_meaningful')(ids) ||
+      (n >= 30 && (g.places ?? []).length > 3),
+  },
+  {
+    id: 'curriculum:loss_grief',
+    description: 'Loss experiences -- people, chapters, versions of yourself',
+    questionType: 'depth',
+    baseScore: 20,
+    coveredIf: (g, ids, n) => h('curriculum:loss_grief')(ids) ||
+      (n >= 30 && (g.themes ?? []).some(t => /loss|grief|death|died|passing/i.test(t))),
+  },
+  {
+    id: 'curriculum:hardest_period',
+    description: 'The hardest stretch of their life',
+    questionType: 'depth',
+    baseScore: 20,
+    coveredIf: (g, ids) => h('curriculum:hardest_period')(ids),
+  },
+  {
+    id: 'curriculum:biggest_mistake',
+    description: 'A significant mistake and what they did with it',
+    questionType: 'depth',
+    baseScore: 18,
+    coveredIf: (g, ids) => h('curriculum:biggest_mistake')(ids),
+  },
+  {
+    id: 'curriculum:roads_not_taken',
+    description: 'A major fork in the road and the path not chosen',
+    questionType: 'depth',
+    baseScore: 18,
+    coveredIf: (g, ids) => h('curriculum:roads_not_taken')(ids),
+  },
+  {
+    id: 'curriculum:how_ive_changed',
+    description: 'How they are different now from who they were at 25',
+    questionType: 'depth',
+    baseScore: 16,
+    coveredIf: (g, ids) => h('curriculum:how_ive_changed')(ids),
+  },
+  {
+    id: 'curriculum:proudest_moments',
+    description: 'Something they are proud of that they rarely talk about',
+    questionType: 'depth',
+    baseScore: 18,
+    coveredIf: (g, ids) => h('curriculum:proudest_moments')(ids),
+  },
+  {
+    id: 'curriculum:daily_life_now',
+    description: 'What a typical week looks like right now -- the mundane details',
+    questionType: 'sensory',
+    baseScore: 16,
+    coveredIf: (g, ids) => h('curriculum:daily_life_now')(ids),
+  },
+  {
+    id: 'curriculum:what_people_miss',
+    description: 'Something about themselves that people who know them would be surprised to learn',
+    questionType: 'depth',
+    baseScore: 18,
+    coveredIf: (g, ids) => h('curriculum:what_people_miss')(ids),
+  },
+  {
+    id: 'curriculum:legacy',
+    description: 'What they want to be remembered for',
+    questionType: 'depth',
+    baseScore: 14,
+    coveredIf: (g, ids) => h('curriculum:legacy')(ids),
+  },
+]
+
 // ─── Decision engine (pure logic — no LLM) ───────────────────
 // Returns top 5 candidates. Claude makes the final selection.
 // Enforces domain diversity: at most one candidate per domain category,
 // so no single category (e.g. open_thread) can monopolize all 5 slots.
-export function selectTopThreads(graph: NarrativeGraph): ScoredThread[] {
+export function selectTopThreads(
+  graph: NarrativeGraph,
+  history: Array<{ thread_id?: string | null }> = []
+): ScoredThread[] {
   const threads: ScoredThread[] = []
   const lastWeight = graph.last_entry_weight ?? 'medium'
   const isLDS = graph.faith?.tradition === 'lds'
@@ -92,7 +369,7 @@ export function selectTopThreads(graph: NarrativeGraph): ScoredThread[] {
       threadId: `theme:${theme}`,
       questionType: 'origin',
       score,
-      description: `Theme present in their story: "${theme}" — ask an origin question to find where this began`,
+      description: `Theme present in their story: "${theme}" — find the earliest specific moment this pattern appeared -- a scene, not a summary`,
     })
   }
 
@@ -116,13 +393,13 @@ export function selectTopThreads(graph: NarrativeGraph): ScoredThread[] {
     })
   }
 
-  // Interests — go deeper on a hobby or passion they've mentioned
+  // Interests — find the first memory or defining moment tied to this interest
   for (const interest of graph.interests ?? []) {
     threads.push({
       threadId: `interest:${interest.slice(0, 40)}`,
       questionType: 'depth',
       score: 15,
-      description: `Interest or passion they've mentioned: "${interest}" — explore what it means to them or where it started`,
+      description: `Interest or passion they've mentioned: "${interest}" — find the first memory or defining moment -- a specific time and place`,
     })
   }
 
@@ -150,6 +427,20 @@ export function selectTopThreads(graph: NarrativeGraph): ScoredThread[] {
     }
   }
 
+  // Life curriculum — unexplored universal life territories
+  // Each covered item is skipped; uncovered items compete for the single curriculum slot
+  const historyIds = history.map(entry => entry.thread_id).filter((id): id is string => !!id)
+  for (const item of LIFE_CURRICULUM) {
+    if (!item.coveredIf(graph, historyIds, graph.total_entries)) {
+      threads.push({
+        threadId: item.id,
+        questionType: item.questionType,
+        score: item.baseScore,
+        description: item.description,
+      })
+    }
+  }
+
   // Early-exploration mode — shapes the candidate pool
   // Person threads suppressed so they don't surface as options before entry 15
   if (graph.total_entries < 15) {
@@ -163,7 +454,7 @@ export function selectTopThreads(graph: NarrativeGraph): ScoredThread[] {
     t.score += Math.random() * 3
   }
 
-  // Default if graph is empty
+  // Default if graph is empty and all curriculum items are covered
   if (threads.length === 0) {
     return [{
       threadId: 'era:childhood',
@@ -178,6 +469,7 @@ export function selectTopThreads(graph: NarrativeGraph): ScoredThread[] {
   // Domain-diversity: take one representative per domain, then top 5 by score.
   // Prevents any single category (e.g. open_thread) from filling all 5 slots
   // when many items of the same type exist.
+  // The 'curriculum' domain counts as one slot, ensuring new territory is always in contention.
   const byDomain = new Map<string, ScoredThread>()
   for (const t of threads) {
     const domain = t.threadId.split(':')[0]

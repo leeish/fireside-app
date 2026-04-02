@@ -21,6 +21,7 @@ CRITICAL RULES:
 - Only write what is supported by the entry text provided. Do not infer, extrapolate, or fill gaps with plausible-sounding detail.
 - If an entry touches a topic only briefly, say so — do not expand it into something it isn't.
 - Note absences plainly: if a topic has been mentioned but never landed on, name that directly.
+- If a topic is new territory but connects to something they have shared (a person, a place, a feeling), name that specific anchor. Example: "They haven't spoken about college directly, but they mentioned their roommate Jake twice — that could be the entry point."
 - These notes will be used to write the next question this person receives. Accuracy matters more than eloquence. A wrong note leads to a wrong question.
 
 Write 3-5 sentences per candidate topic. Stay grounded. Stay specific.`
@@ -96,7 +97,7 @@ export const selectNextPrompt = inngest.createFunction(
     // Load previously delivered questions — passed to Claude for selection + repetition avoidance
     const { data: promptHistory } = await supabase
       .from('queued_prompts')
-      .select('question, question_type')
+      .select('question, question_type, thread_id')
       .eq('user_id', userId)
       .neq('delivery_state', 'queued')
       .order('created_at', { ascending: true })
@@ -104,7 +105,7 @@ export const selectNextPrompt = inngest.createFunction(
     const { model: claudeModel } = getClaudeClient()
 
     // Scoring engine — returns top 5 candidates for Claude to choose from
-    const candidates = selectTopThreads(graph)
+    const candidates = selectTopThreads(graph, promptHistory ?? [])
 
     // ─── RAG: retrieve relevant entries per candidate thread ──────────
     let promptContext = ''
@@ -239,7 +240,7 @@ ${promptContext ? `Biographer's notes on candidate topics (based on what this pe
 `.trim()
 
     const historyBlock = promptHistory && promptHistory.length > 0
-      ? `\n\nPreviously asked questions — do not repeat any of these. Returning to a topic for a deeper angle is encouraged — find a new entry point, a specific detail, or a layer beneath what's already been said:\n${promptHistory.map((p, i) => `${i + 1}. [${p.question_type ?? 'unknown'}] ${p.question}`).join('\n')}`
+      ? `\n\nPreviously asked questions — do not repeat any of these. You may return to a topic only if the biographer's notes surface a specific scene, memory, or detail not yet explored — not to go deeper in the abstract:\n${promptHistory.map((p, i) => `${i + 1}. [${p.question_type ?? 'unknown'}] ${p.question}`).join('\n')}`
       : ''
 
     const candidateList = candidates
@@ -267,6 +268,9 @@ ${historyBlock}
 SELECTION GUIDANCE:
 ${earlyNote}
 ${varietyNote}
+- If a curriculum thread is in the candidate list and this person has not shared anything on that territory, strongly consider it — new ground is almost always worth opening.
+- Whatever thread you pick: anchor the question in something specific this person has actually said — a name, a place, a detail from their entries. A question that could apply to anyone is a failed question.
+- If you choose a new territory the person hasn't discussed yet, bridge from something familiar. Example: "You've mentioned Jake a few times — how did you two end up at the same school?" opens college through a person they already know.
 - Pick the thread that creates the best narrative experience given the full history above.
 - A good biographer reads the room: consider pacing, emotional weight, and what chapters feel neglected.
 - Do not invent a new topic. Choose from the candidates only.
@@ -335,9 +339,10 @@ Return ONLY valid JSON, no markdown, no explanation:
 
     // Build user-friendly reasoning
     const selectedCandidate = candidates.find(c => c.threadId === selectedThreadId)
+    const candidateSummary = candidates.map((c, i) => `${i + 1}. [score=${c.score.toFixed(1)}] ${c.threadId} — ${c.description}`).join('\n')
     const reasoning = selectedCandidate
-      ? `Selected: ${selectedCandidate.description}`
-      : 'Automatic selection based on conversation history'
+      ? `Selected: ${selectedCandidate.description}\n\nCandidates considered:\n${candidateSummary}`
+      : `Automatic selection based on conversation history\n\nCandidates considered:\n${candidateSummary}`
 
     // Insert queued_prompt with topic-scoped notes stored as prompt_context
     const { data: qp, error: qpError } = await supabase

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { selectTopThreads } from '../inngest/functions/select-next-prompt-engine'
+import { LIFE_CURRICULUM } from '../inngest/functions/select-next-prompt-engine'
 import type { NarrativeGraph } from '../lib/graph'
 
 function baseGraph(overrides: Partial<NarrativeGraph> = {}): NarrativeGraph {
@@ -17,6 +18,11 @@ function baseGraph(overrides: Partial<NarrativeGraph> = {}): NarrativeGraph {
     milestone_calendar: {},
     ...overrides,
   }
+}
+
+// Build a history array that covers every curriculum item
+function allCurriculumHistory() {
+  return LIFE_CURRICULUM.map(item => ({ thread_id: item.id }))
 }
 
 describe('selectTopThreads', () => {
@@ -58,14 +64,37 @@ describe('selectTopThreads', () => {
     expect(candidates[0].threadId).toBe('lightness')
   })
 
-  it('returns the childhood era fallback when all eras are fully captured and graph is otherwise empty', () => {
-    // All 6 eras at 'high' richness score 0 — no other candidates — triggers the fallback
+  it('returns the childhood era fallback when all eras are fully captured, graph is otherwise empty, and all curriculum items are covered', () => {
     const fullEras = Object.fromEntries(
       ['childhood', 'youth', 'mission', 'marriage', 'parenthood', 'career'].map(e => [e, { richness: 'high' as const, entries: 10 }])
     )
     const graph = baseGraph({ eras: fullEras, people: {}, open_threads: [], themes: [], places: [], events: [], interests: [] })
-    const candidates = selectTopThreads(graph)
+    // Pass full curriculum history so all curriculum items are marked covered
+    const candidates = selectTopThreads(graph, allCurriculumHistory())
     expect(candidates).toHaveLength(1)
     expect(candidates[0].threadId).toBe('era:childhood')
+  })
+
+  it('includes a curriculum thread when history is empty', () => {
+    const graph = baseGraph({ total_entries: 5 })
+    const candidates = selectTopThreads(graph, [])
+    const hasCurriculum = candidates.some(c => c.threadId.startsWith('curriculum:'))
+    expect(hasCurriculum).toBe(true)
+  })
+
+  it('excludes a curriculum item once it appears in history', () => {
+    const graph = baseGraph({ total_entries: 5 })
+    const history = [{ thread_id: 'curriculum:parents_as_people' }]
+    const candidatesAfter = selectTopThreads(graph, history)
+    const stillPresent = candidatesAfter.some(c => c.threadId === 'curriculum:parents_as_people')
+    expect(stillPresent).toBe(false)
+  })
+
+  it('at most 1 curriculum candidate in the top-5 (domain diversity)', () => {
+    // Empty graph with no history — many curriculum items will score
+    const graph = baseGraph({ total_entries: 3, eras: {}, people: {}, themes: [], open_threads: [] })
+    const candidates = selectTopThreads(graph, [])
+    const curriculumCount = candidates.filter(c => c.threadId.startsWith('curriculum:')).length
+    expect(curriculumCount).toBeLessThanOrEqual(1)
   })
 })
