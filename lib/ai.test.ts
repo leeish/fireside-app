@@ -20,7 +20,7 @@ vi.mock('openai', () => {
   }
 })
 
-import { chatComplete } from './ai'
+import { chatComplete, logTokenUsage } from './ai'
 
 describe('chatComplete', () => {
   beforeEach(() => {
@@ -180,6 +180,56 @@ describe('chatComplete', () => {
     })
   })
 
+  describe('cache token extraction', () => {
+    it('returns cacheCreationTokens and cacheReadTokens from Anthropic usage', async () => {
+      mockAnthropicCreate.mockResolvedValueOnce({
+        content: [{ type: 'text', text: '{"response": "test", "wrap": false}' }],
+        usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 200, cache_read_input_tokens: 80 },
+      })
+
+      const result = await chatComplete({
+        system: 'Test system',
+        messages: [{ role: 'user', content: 'Hello' }],
+        enableCache: true,
+      })
+
+      expect(result.cacheCreationTokens).toBe(200)
+      expect(result.cacheReadTokens).toBe(80)
+    })
+
+    it('returns 0 for cache tokens when Anthropic usage fields are null', async () => {
+      mockAnthropicCreate.mockResolvedValueOnce({
+        content: [{ type: 'text', text: '{"response": "test", "wrap": false}' }],
+        usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: null, cache_read_input_tokens: null },
+      })
+
+      const result = await chatComplete({
+        system: 'Test system',
+        messages: [{ role: 'user', content: 'Hello' }],
+        enableCache: true,
+      })
+
+      expect(result.cacheCreationTokens).toBe(0)
+      expect(result.cacheReadTokens).toBe(0)
+    })
+
+    it('returns 0 for cache tokens when Anthropic usage fields are absent', async () => {
+      mockAnthropicCreate.mockResolvedValueOnce({
+        content: [{ type: 'text', text: '{"response": "test", "wrap": false}' }],
+        usage: { input_tokens: 100, output_tokens: 50 },
+      })
+
+      const result = await chatComplete({
+        system: 'Test system',
+        messages: [{ role: 'user', content: 'Hello' }],
+        enableCache: true,
+      })
+
+      expect(result.cacheCreationTokens).toBe(0)
+      expect(result.cacheReadTokens).toBe(0)
+    })
+  })
+
   describe('OpenAI path ignores enableCache', () => {
     beforeEach(() => {
       process.env.CHAT_VENDOR = 'openai'
@@ -212,5 +262,63 @@ describe('chatComplete', () => {
       expect(result.inputTokens).toBe(100)
       expect(result.outputTokens).toBe(50)
     })
+
+    it('returns 0 for cache tokens on OpenAI path', async () => {
+      mockOpenAICreate.mockResolvedValueOnce({
+        choices: [{ message: { content: '{"response": "test", "wrap": false}' } }],
+        usage: { prompt_tokens: 100, completion_tokens: 50 },
+      })
+
+      const result = await chatComplete({
+        system: 'Test system prompt',
+        messages: [{ role: 'user', content: 'Test message' }],
+        enableCache: true,
+      })
+
+      expect(result.cacheCreationTokens).toBe(0)
+      expect(result.cacheReadTokens).toBe(0)
+    })
+  })
+})
+
+describe('logTokenUsage', () => {
+  it('passes cache_creation_tokens and cache_read_tokens to Supabase insert', async () => {
+    const mockInsert = vi.fn().mockResolvedValue({ error: null })
+    const mockSupabase = { from: vi.fn().mockReturnValue({ insert: mockInsert }) } as any
+
+    await logTokenUsage(mockSupabase, {
+      userId: 'user-1',
+      inngestFunction: 'chat-respond',
+      model: 'claude-haiku-4-5-20251001',
+      inputTokens: 100,
+      outputTokens: 50,
+      purpose: 'biographer response',
+      cacheCreationTokens: 200,
+      cacheReadTokens: 80,
+    })
+
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+      cache_creation_tokens: 200,
+      cache_read_tokens: 80,
+    }))
+  })
+
+  it('passes null for cache columns when not provided', async () => {
+    const mockInsert = vi.fn().mockResolvedValue({ error: null })
+    const mockSupabase = { from: vi.fn().mockReturnValue({ insert: mockInsert }) } as any
+
+    await logTokenUsage(mockSupabase, {
+      userId: 'user-1',
+      inngestFunction: 'chat-respond',
+      model: 'claude-haiku-4-5-20251001',
+      inputTokens: 100,
+      outputTokens: 50,
+      purpose: 'biographer response',
+    })
+
+    expect(mockInsert).toHaveBeenCalledWith(expect.objectContaining({
+      cache_creation_tokens: null,
+      cache_read_tokens: null,
+    }))
   })
 })

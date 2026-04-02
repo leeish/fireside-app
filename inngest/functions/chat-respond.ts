@@ -97,7 +97,7 @@ export const chatRespond = inngest.createFunction(
       ? `${CHAT_SYSTEM}\n\nBiographer's notes on this conversation topic (based on what this person has actually written):\n${promptContext}`
       : CHAT_SYSTEM
 
-    const { text: raw, inputTokens, outputTokens } = await withUserKeyFallback(userId, supabase, userApiKey, (key) =>
+    const { text: raw, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens } = await withUserKeyFallback(userId, supabase, userApiKey, (key) =>
       chatComplete({
         system: systemPrompt,
         messages: chatMessages,
@@ -117,6 +117,8 @@ export const chatRespond = inngest.createFunction(
       inputTokens,
       outputTokens,
       purpose: 'biographer response',
+      cacheCreationTokens,
+      cacheReadTokens,
     })
 
     const parsed = JSON.parse(raw) as { response: string; wrap?: boolean }

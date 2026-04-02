@@ -72,7 +72,7 @@ export async function chatComplete({
   maxTokens?: number
   enableCache?: boolean
   apiKey?: string
-}): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+}): Promise<{ text: string; inputTokens: number; outputTokens: number; cacheCreationTokens: number; cacheReadTokens: number }> {
   const vendor = process.env.CHAT_VENDOR ?? 'anthropic'
   const model = process.env.CHAT_MODEL ?? 'claude-haiku-4-5-20251001'
 
@@ -168,6 +168,8 @@ export async function chatComplete({
       text: block.text,
       inputTokens: message.usage.input_tokens,
       outputTokens: message.usage.output_tokens,
+      cacheCreationTokens: message.usage.cache_creation_input_tokens ?? 0,
+      cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
     }
   } else {
     // OpenAI — use json_object response format so output is always parseable
@@ -186,6 +188,8 @@ export async function chatComplete({
       text: completion.choices[0].message.content ?? '',
       inputTokens: completion.usage?.prompt_tokens ?? 0,
       outputTokens: completion.usage?.completion_tokens ?? 0,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
     }
   }
 }
@@ -200,6 +204,8 @@ export async function logTokenUsage(
     inputTokens: number
     outputTokens: number
     purpose: string
+    cacheCreationTokens?: number
+    cacheReadTokens?: number
   }
 ): Promise<void> {
   try {
@@ -211,6 +217,8 @@ export async function logTokenUsage(
       input_tokens: params.inputTokens,
       output_tokens: params.outputTokens,
       purpose: params.purpose,
+      cache_creation_tokens: params.cacheCreationTokens ?? null,
+      cache_read_tokens: params.cacheReadTokens ?? null,
     })
   } catch {
     // Never throw — token logging must not fail a function
