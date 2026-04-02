@@ -132,7 +132,7 @@ export default function UsageTable({ rows, totalCount, page, pageSize, sort, dir
               rows.map(row => (
                 <tr key={row.id} className="border-b border-border/30 last:border-0 hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3 text-xs text-muted-fg whitespace-nowrap">
-                    {new Date(row.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {new Date(row.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </td>
                   <td className="px-4 py-3 text-xs text-foreground">{row.model}</td>
                   <td className="px-4 py-3 text-xs text-foreground">{row.inngest_function}</td>

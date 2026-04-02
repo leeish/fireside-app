@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import UsageChart from './UsageChart'
 import UsageTable from './UsageTable'
+import ConversationCostTable from './ConversationCostTable'
+import TabSwitcher from './TabSwitcher'
 import { Suspense } from 'react'
 
 const PAGE_SIZE = 25
@@ -63,6 +65,7 @@ export default async function UsagePage({ searchParams }: { searchParams: Search
   if (!user) redirect('/login')
 
   const params = await searchParams
+  const view = String(params.view ?? 'records')
   const page = Math.max(1, parseInt(String(params.page ?? '1'), 10))
   const sort = String(params.sort ?? 'created_at')
   const dir = (params.dir === 'asc' ? 'asc' : 'desc') as 'asc' | 'desc'
@@ -95,26 +98,72 @@ export default async function UsagePage({ searchParams }: { searchParams: Search
 
   const weeklyData = aggregateByWeek(chartRows ?? [], pricing)
 
-  // Table data — paginated + filtered
-  const offset = (page - 1) * PAGE_SIZE
+  // ── Records view ──────────────────────────────────────────────────
+  let tableRows: ReturnType<typeof Array.prototype.map> | null = null
+  let count: number | null = null
 
-  let query = supabase
-    .from('token_usage')
-    .select('id, created_at, model, inngest_function, purpose, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens', { count: 'exact' })
-    .eq('user_id', user.id)
+  if (view === 'records') {
+    const offset = (page - 1) * PAGE_SIZE
+    let query = supabase
+      .from('token_usage')
+      .select('id, created_at, model, inngest_function, purpose, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens', { count: 'exact' })
+      .eq('user_id', user.id)
 
-  if (fn) query = query.ilike('inngest_function', `%${fn}%`)
-  if (purpose) query = query.ilike('purpose', `%${purpose}%`)
-  if (from) query = query.gte('created_at', new Date(from).toISOString())
-  if (to) {
-    const toDate = new Date(to)
-    toDate.setDate(toDate.getDate() + 1)
-    query = query.lt('created_at', toDate.toISOString())
+    if (fn) query = query.ilike('inngest_function', `%${fn}%`)
+    if (purpose) query = query.ilike('purpose', `%${purpose}%`)
+    if (from) query = query.gte('created_at', new Date(from).toISOString())
+    if (to) {
+      const toDate = new Date(to)
+      toDate.setDate(toDate.getDate() + 1)
+      query = query.lt('created_at', toDate.toISOString())
+    }
+
+    const result = await query
+      .order(sort, { ascending: dir === 'asc' })
+      .range(offset, offset + PAGE_SIZE - 1)
+
+    tableRows = result.data
+    count = result.count
   }
 
-  const { data: tableRows, count } = await query
-    .order(sort, { ascending: dir === 'asc' })
-    .range(offset, offset + PAGE_SIZE - 1)
+  // ── Conversations view ────────────────────────────────────────────
+  let conversationRows: Array<{
+    id: string; topic: string; opened_at: string
+    totalInput: number; totalOutput: number; totalCacheW: number; totalCacheR: number; totalCost: number
+  }> = []
+
+  if (view === 'conversations') {
+    const [{ data: convUsage }, { data: conversations }] = await Promise.all([
+      supabase
+        .from('token_usage')
+        .select('conversation_id, model, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens')
+        .eq('user_id', user.id)
+        .not('conversation_id', 'is', null),
+      supabase
+        .from('conversations')
+        .select('id, topic, opened_at')
+        .eq('user_id', user.id),
+    ])
+
+    const accMap = new Map<string, { totalInput: number; totalOutput: number; totalCacheW: number; totalCacheR: number; totalCost: number }>()
+    for (const row of convUsage ?? []) {
+      const id = row.conversation_id!
+      if (!accMap.has(id)) accMap.set(id, { totalInput: 0, totalOutput: 0, totalCacheW: 0, totalCacheR: 0, totalCost: 0 })
+      const acc = accMap.get(id)!
+      const cw = row.cache_creation_tokens ?? 0
+      const cr = row.cache_read_tokens ?? 0
+      acc.totalInput += row.input_tokens
+      acc.totalOutput += row.output_tokens
+      acc.totalCacheW += cw
+      acc.totalCacheR += cr
+      acc.totalCost += getCost(row.input_tokens, row.output_tokens, row.model, pricing, cw, cr)
+    }
+
+    conversationRows = (conversations ?? [])
+      .filter(c => accMap.has(c.id))
+      .map(c => ({ ...c, ...accMap.get(c.id)! }))
+      .sort((a, b) => new Date(b.opened_at).getTime() - new Date(a.opened_at).getTime())
+  }
 
   return (
     <div className="w-full px-6 py-10">
@@ -132,23 +181,35 @@ export default async function UsagePage({ searchParams }: { searchParams: Search
         <UsageChart data={weeklyData} />
       </section>
 
-      {/* Table */}
+      {/* Tabs + Table */}
       <section
         className="bg-card rounded-[2rem] border border-border/50 p-7"
         style={{ boxShadow: '0 4px 20px -4px rgba(93, 112, 82, 0.10)' }}
       >
-        <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest mb-4">All records</h2>
-        <Suspense>
-          <UsageTable
-            rows={(tableRows ?? []).map(r => ({ ...r, cost: getCost(r.input_tokens, r.output_tokens, r.model, pricing, r.cache_creation_tokens ?? 0, r.cache_read_tokens ?? 0) }))}
-            totalCount={count ?? 0}
-            page={page}
-            pageSize={PAGE_SIZE}
-            sort={sort}
-            dir={dir}
-            filters={{ fn, purpose, from, to }}
-          />
-        </Suspense>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest">
+            {view === 'conversations' ? 'By conversation' : 'All records'}
+          </h2>
+          <Suspense>
+            <TabSwitcher activeView={view} />
+          </Suspense>
+        </div>
+
+        {view === 'conversations' ? (
+          <ConversationCostTable rows={conversationRows} />
+        ) : (
+          <Suspense>
+            <UsageTable
+              rows={(tableRows ?? []).map((r: any) => ({ ...r, cost: getCost(r.input_tokens, r.output_tokens, r.model, pricing, r.cache_creation_tokens ?? 0, r.cache_read_tokens ?? 0) }))}
+              totalCount={count ?? 0}
+              page={page}
+              pageSize={PAGE_SIZE}
+              sort={sort}
+              dir={dir}
+              filters={{ fn, purpose, from, to }}
+            />
+          </Suspense>
+        )}
       </section>
     </div>
   )
