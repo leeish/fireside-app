@@ -117,7 +117,7 @@ export default async function UsagePage({ searchParams }: { searchParams: Search
     .range(offset, offset + PAGE_SIZE - 1)
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-10">
+    <div className="w-full px-6 py-10">
       <div className="mb-8">
         <h1 className="text-2xl font-display font-semibold text-foreground">Usage</h1>
         <p className="text-muted-fg text-sm mt-1">Your token consumption over time.</p>
