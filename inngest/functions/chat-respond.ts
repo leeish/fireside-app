@@ -49,7 +49,7 @@ Return JSON with exactly these fields:
 
 const CONTEXT_ADDENDUM_SYSTEM = `You are a biographer's research assistant supporting a live conversation.
 
-Based on what the person is sharing right now and relevant excerpts from their past writing, write 2-3 sentences the biographer should carry in mind. Be specific -- name people, places, or memories from the actual entries. Do not generalize. These notes help the biographer make meaningful connections between what is being said now and what was written before. Write in third person as notes about the person, not addressed to them.`
+You have been given excerpts from this person's past writing that are relevant to the current conversation topic. Write 2-3 sentences the biographer should carry in mind — drawn entirely from these past entries, not from what is being said right now. Be specific: name people, places, or memories from the actual entries. Do not generalize. Do not summarize the current conversation. Write in third person as notes about the person, not addressed to them.`
 
 // Pure helper — exported for testing
 export function shouldRefreshContext(realUserTurnCount: number, interval: number): boolean {
@@ -230,7 +230,7 @@ export const chatRespond = inngest.createFunction(
                 const addendumResult = await withUserKeyFallback(userId, supabase, userApiKey, (key) =>
                   claudeComplete({
                     system: CONTEXT_ADDENDUM_SYSTEM,
-                    user: `What they have been saying recently:\n${queryText}\n\nRelevant past entries:\n${retrievedText}\n\nWrite the context note.`,
+                    user: `Relevant past entries:\n${retrievedText}\n\nWrite the context note.`,
                     temperature: 0.3,
                     maxTokens: 200,
                     apiKey: key,
