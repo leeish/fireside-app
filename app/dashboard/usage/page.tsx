@@ -14,14 +14,25 @@ function getWeekLabel(date: Date): string {
 
 type PricingRow = { model: string; input_per_1m: number; output_per_1m: number }
 
-function getCost(inputTokens: number, outputTokens: number, model: string, pricing: PricingRow[]): number {
+function getCost(
+  inputTokens: number,
+  outputTokens: number,
+  model: string,
+  pricing: PricingRow[],
+  cacheCreationTokens = 0,
+  cacheReadTokens = 0,
+): number {
   const p = pricing.find(r => r.model === model)
   if (!p) return 0
-  return (inputTokens / 1_000_000 * Number(p.input_per_1m)) + (outputTokens / 1_000_000 * Number(p.output_per_1m))
+  return (
+    (inputTokens + cacheCreationTokens) / 1_000_000 * Number(p.input_per_1m) +
+    cacheReadTokens / 1_000_000 * Number(p.input_per_1m) * 0.1 +
+    outputTokens / 1_000_000 * Number(p.output_per_1m)
+  )
 }
 
 function aggregateByWeek(
-  rows: { created_at: string; input_tokens: number; output_tokens: number; model: string }[],
+  rows: { created_at: string; input_tokens: number; output_tokens: number; model: string; cache_creation_tokens: number | null; cache_read_tokens: number | null }[],
   pricing: PricingRow[],
 ) {
   const buckets: Record<string, { tokens: number; cost: number; date: Date }> = {}
@@ -33,9 +44,11 @@ function aggregateByWeek(
     weekStart.setDate(d.getDate() - day)
     weekStart.setHours(0, 0, 0, 0)
     const key = weekStart.toISOString()
+    const cacheCreate = row.cache_creation_tokens ?? 0
+    const cacheRead = row.cache_read_tokens ?? 0
     if (!buckets[key]) buckets[key] = { tokens: 0, cost: 0, date: weekStart }
-    buckets[key].tokens += row.input_tokens + row.output_tokens
-    buckets[key].cost += getCost(row.input_tokens, row.output_tokens, row.model, pricing)
+    buckets[key].tokens += row.input_tokens + row.output_tokens + cacheCreate + cacheRead
+    buckets[key].cost += getCost(row.input_tokens, row.output_tokens, row.model, pricing, cacheCreate, cacheRead)
   }
 
   return Object.values(buckets)
@@ -75,7 +88,7 @@ export default async function UsagePage({ searchParams }: { searchParams: Search
   // Chart data — last 3 months, lightweight columns only
   const { data: chartRows } = await supabase
     .from('token_usage')
-    .select('created_at, input_tokens, output_tokens, model')
+    .select('created_at, input_tokens, output_tokens, model, cache_creation_tokens, cache_read_tokens')
     .eq('user_id', user.id)
     .gte('created_at', threeMonthsAgo.toISOString())
 
@@ -86,7 +99,7 @@ export default async function UsagePage({ searchParams }: { searchParams: Search
 
   let query = supabase
     .from('token_usage')
-    .select('id, created_at, model, inngest_function, purpose, input_tokens, output_tokens', { count: 'exact' })
+    .select('id, created_at, model, inngest_function, purpose, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens', { count: 'exact' })
     .eq('user_id', user.id)
 
   if (fn) query = query.ilike('inngest_function', `%${fn}%`)
@@ -126,7 +139,7 @@ export default async function UsagePage({ searchParams }: { searchParams: Search
         <h2 className="text-xs font-semibold text-muted-fg uppercase tracking-widest mb-4">All records</h2>
         <Suspense>
           <UsageTable
-            rows={(tableRows ?? []).map(r => ({ ...r, cost: getCost(r.input_tokens, r.output_tokens, r.model, pricing) }))}
+            rows={(tableRows ?? []).map(r => ({ ...r, cost: getCost(r.input_tokens, r.output_tokens, r.model, pricing, r.cache_creation_tokens ?? 0, r.cache_read_tokens ?? 0) }))}
             totalCount={count ?? 0}
             page={page}
             pageSize={PAGE_SIZE}
