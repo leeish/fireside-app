@@ -25,7 +25,8 @@ function getCost(
   const p = pricing.find(r => r.model === model)
   if (!p) return 0
   return (
-    (inputTokens + cacheCreationTokens) / 1_000_000 * Number(p.input_per_1m) +
+    inputTokens / 1_000_000 * Number(p.input_per_1m) +
+    cacheCreationTokens / 1_000_000 * Number(p.input_per_1m) * 1.25 +
     cacheReadTokens / 1_000_000 * Number(p.input_per_1m) * 0.1 +
     outputTokens / 1_000_000 * Number(p.output_per_1m)
   )
