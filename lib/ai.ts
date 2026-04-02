@@ -79,39 +79,6 @@ export async function chatComplete({
   if (vendor === 'anthropic') {
     const client = new Anthropic({
       apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY,
-      fetch: enableCache ? async (url: string | URL | Request, init?: RequestInit) => {
-        try {
-          const rawBody = typeof init?.body === 'string' ? init.body : ''
-          const parsed = JSON.parse(rawBody)
-          const redacted = {
-            ...parsed,
-            system: Array.isArray(parsed.system)
-              ? parsed.system.map((b: any) => ({ ...b, text: b.text ? `[${String(b.text).length}c]` : b.text }))
-              : typeof parsed.system === 'string' ? `[${parsed.system.length}c]` : parsed.system,
-            messages: Array.isArray(parsed.messages)
-              ? parsed.messages.map((m: any) => ({
-                  ...m,
-                  content: Array.isArray(m.content)
-                    ? m.content.map((b: any) => ({ ...b, text: b.text ? `[${String(b.text).length}c]` : b.text }))
-                    : typeof m.content === 'string' ? `[${m.content.length}c]` : m.content,
-                }))
-              : parsed.messages,
-          }
-          await globalThis.fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/debug_logs`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
-              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
-              'Prefer': 'return=minimal',
-            },
-            body: JSON.stringify({ label: 'anthropic-request', payload: redacted }),
-          })
-        } catch (e) {
-          console.error('[debug_logs] failed to write', e)
-        }
-        return globalThis.fetch(url as any, init)
-      } : undefined,
     })
 
     // Apply cache control if enabled
