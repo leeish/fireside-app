@@ -27,6 +27,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
     .from('turns')
     .select('id, role, content, created_at')
     .eq('conversation_id', id)
+    .eq('is_synthetic', false)
     .order('created_at', { ascending: true })
 
   const decryptedTurns = (turns ?? []).map(turn => ({

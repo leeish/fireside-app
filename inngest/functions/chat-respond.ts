@@ -102,7 +102,7 @@ export const chatRespond = inngest.createFunction(
 
     const decryptedTurns = allTurns.map(t => ({
       ...t,
-      content: (() => { try { return decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return '' } })(),
+      content: (() => { try { return decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return t.content } })(),
     }))
 
     // Build proper alternating messages array — 'biographer' turns become 'assistant'
@@ -254,7 +254,7 @@ export const chatRespond = inngest.createFunction(
                     conversation_id: conversationId,
                     user_id: userId,
                     role: 'user',
-                    content: '[Biographer context update — internal only]',
+                    content: encrypt('[Biographer context update — internal only]', process.env.MEMORY_ENCRYPTION_KEY!),
                     channel: 'app',
                     processed: true,
                     is_synthetic: true,
