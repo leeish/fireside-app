@@ -77,6 +77,7 @@ export async function POST(
     .from('turns')
     .select('role, content')
     .eq('conversation_id', conversationId)
+    .eq('is_synthetic', false)
     .order('created_at', { ascending: true })
 
   const sourceText = (turns ?? [])

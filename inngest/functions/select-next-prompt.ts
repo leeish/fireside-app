@@ -165,6 +165,7 @@ export const selectNextPrompt = inngest.createFunction(
             .select('content')
             .eq('conversation_id', conversationId)
             .eq('role', 'user')
+            .eq('is_synthetic', false)
             .order('created_at', { ascending: true })
 
           if (!turns || turns.length === 0) return

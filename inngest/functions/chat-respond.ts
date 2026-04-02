@@ -1,7 +1,8 @@
 import { inngest } from '../client'
 import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt, encrypt } from '@/lib/crypto'
-import { chatComplete, logTokenUsage, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
+import { chatComplete, claudeComplete, getClaudeClient, logTokenUsage, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
+import { generateEmbedding } from '@/lib/embeddings'
 
 type ChatRespondEvent = {
   data: {
@@ -32,6 +33,15 @@ Example wrap: "You just told me about watching the Cowboys destroy the Bills wit
 
 Return JSON with exactly these fields:
 { "response": "your full response text", "wrap": false }`
+
+const CONTEXT_ADDENDUM_SYSTEM = `You are a biographer's research assistant supporting a live conversation.
+
+Based on what the person is sharing right now and relevant excerpts from their past writing, write 2-3 sentences the biographer should carry in mind. Be specific -- name people, places, or memories from the actual entries. Do not generalize. These notes help the biographer make meaningful connections between what is being said now and what was written before. Write in third person as notes about the person, not addressed to them.`
+
+// Pure helper — exported for testing
+export function shouldRefreshContext(realUserTurnCount: number, interval: number): boolean {
+  return realUserTurnCount > 0 && realUserTurnCount % interval === 0
+}
 
 export const chatRespond = inngest.createFunction(
   { id: 'chat-respond', retries: 2, triggers: [{ event: 'fireside/chat.respond' }] },
@@ -65,14 +75,17 @@ export const chatRespond = inngest.createFunction(
       promptContext = qp?.prompt_context ?? null
     }
 
-    // Load all turns
+    // Load all turns — includes synthetic turns so they appear in the messages array sent to Claude
     const { data: rawTurns } = await supabase
       .from('turns')
-      .select('id, role, content, created_at')
+      .select('id, role, content, created_at, is_synthetic')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
 
     const allTurns = rawTurns ?? []
+
+    // Count only real (non-synthetic) user turns for the RAG refresh interval check
+    const realUserTurnCount = allTurns.filter(t => t.role === 'user' && !t.is_synthetic).length
 
     const decryptedTurns = allTurns.map(t => ({
       ...t,
@@ -80,6 +93,8 @@ export const chatRespond = inngest.createFunction(
     }))
 
     // Build proper alternating messages array — 'biographer' turns become 'assistant'
+    // Synthetic turns are included here intentionally: they enrich the biographer's context
+    // without modifying the system prompt (which would bust the prompt cache)
     const chatMessages: Array<{ role: 'user' | 'assistant'; content: string }> = decryptedTurns.map(t => ({
       role: t.role === 'user' ? 'user' : 'assistant',
       content: t.content,
@@ -142,6 +157,113 @@ export const chatRespond = inngest.createFunction(
         .from('conversations')
         .update({ status: 'wrap_offered' })
         .eq('id', conversationId)
+    }
+
+    // Mid-conversation RAG refresh — fires every N real user turns to enrich biographer context.
+    // Runs after the response is saved so it never adds latency to the current turn.
+    // The resulting synthetic turn pair is available starting from the next turn.
+    const refreshInterval = parseInt(process.env.CHAT_CONTEXT_REFRESH_TURNS ?? '3', 10)
+    if (shouldRefreshContext(realUserTurnCount, refreshInterval)) {
+      try {
+        const recentUserTurns = decryptedTurns
+          .filter(t => t.role === 'user' && !t.is_synthetic)
+          .slice(-refreshInterval)
+        const queryText = recentUserTurns.map(t => t.content).filter(Boolean).join('\n\n')
+
+        if (queryText) {
+          const embeddingResult = await generateEmbedding(queryText)
+          if (embeddingResult) {
+            void logTokenUsage(supabase, {
+              userId,
+              conversationId,
+              inngestFunction: 'chat-respond',
+              model: 'text-embedding-3-small',
+              inputTokens: embeddingResult.inputTokens,
+              outputTokens: 0,
+              purpose: 'context refresh embedding',
+            })
+
+            const { data: matchedEntries } = await supabase.rpc('match_entries', {
+              query_embedding: JSON.stringify(embeddingResult.embedding),
+              match_user_id: userId,
+              match_count: 3,
+            })
+
+            if (matchedEntries && matchedEntries.length > 0) {
+              const entryTexts = await Promise.all(
+                (matchedEntries as Array<{ conversation_id: string }>).map(async (row) => {
+                  const { data: entryTurns } = await supabase
+                    .from('turns')
+                    .select('content')
+                    .eq('conversation_id', row.conversation_id)
+                    .eq('role', 'user')
+                    .eq('is_synthetic', false)
+                    .order('created_at', { ascending: true })
+
+                  if (!entryTurns || entryTurns.length === 0) return null
+
+                  return entryTurns
+                    .map(t => { try { return decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return '' } })
+                    .filter(Boolean)
+                    .join('\n\n')
+                })
+              )
+
+              const retrievedText = entryTexts.filter(Boolean).join('\n\n---\n\n')
+
+              if (retrievedText) {
+                const { model: claudeModel } = getClaudeClient()
+
+                const addendumResult = await withUserKeyFallback(userId, supabase, userApiKey, (key) =>
+                  claudeComplete({
+                    system: CONTEXT_ADDENDUM_SYSTEM,
+                    user: `What they have been saying recently:\n${queryText}\n\nRelevant past entries:\n${retrievedText}\n\nWrite the context note.`,
+                    temperature: 0.3,
+                    maxTokens: 200,
+                    apiKey: key,
+                  })
+                )
+
+                void logTokenUsage(supabase, {
+                  userId,
+                  conversationId,
+                  inngestFunction: 'chat-respond',
+                  model: claudeModel,
+                  inputTokens: addendumResult.inputTokens,
+                  outputTokens: addendumResult.outputTokens,
+                  purpose: 'context refresh addendum',
+                })
+
+                // Insert synthetic turn pair — appended only, never modify earlier turns
+                // (modifying earlier turns would bust the Claude prompt cache)
+                await supabase.from('turns').insert([
+                  {
+                    conversation_id: conversationId,
+                    user_id: userId,
+                    role: 'user',
+                    content: '[Biographer context update — internal only]',
+                    channel: 'app',
+                    processed: true,
+                    is_synthetic: true,
+                  },
+                  {
+                    conversation_id: conversationId,
+                    user_id: userId,
+                    role: 'biographer',
+                    content: encrypt(addendumResult.text, process.env.MEMORY_ENCRYPTION_KEY!),
+                    channel: 'app',
+                    processed: true,
+                    is_synthetic: true,
+                  },
+                ])
+              }
+            }
+          }
+        }
+      } catch (err) {
+        // Never let context refresh failure break the chat function
+        console.error('[chat-respond] context refresh failed:', err)
+      }
     }
 
     return { conversationId, wrap: parsed.wrap ?? false }

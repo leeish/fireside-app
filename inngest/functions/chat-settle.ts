@@ -37,6 +37,7 @@ export const chatSettle = inngest.createFunction(
       .from('turns')
       .select('id, role, content, created_at')
       .eq('conversation_id', conversationId)
+      .eq('is_synthetic', false)
       .order('created_at', { ascending: true })
 
     if (!turns || turns.length === 0) return { skipped: 'no turns found' }
