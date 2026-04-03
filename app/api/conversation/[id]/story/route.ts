@@ -8,16 +8,39 @@ const INTENSITY_PROMPTS = {
   light: `Lightly reshape the following personal account into a journal entry. \
 Preserve nearly all of the original wording and every specific detail. \
 Add light narrative structure and smooth any rough transitions, but don't rewrite. \
+Do not use em-dashes. \
 Return only the journal entry. No commentary, no quotation marks, no markdown.`,
 
   medium: `Rewrite the following as a polished personal journal entry. \
 Keep all facts and the author's distinctive voice, but rewrite for flow, narrative arc, and emotional clarity. \
+Do not use em-dashes. \
 Return only the journal entry. No commentary, no quotation marks, no markdown.`,
 
   full: `Ghost-write the following as a beautifully crafted memoir entry. \
 Preserve every fact and the emotional truth of the story, but elevate the prose to feel like published personal narrative. \
-The author's personality and specific details must shine through — this should feel unmistakably like them, just at their best. \
+The author's personality and specific details must shine through -- this should feel unmistakably like them, just at their best. \
+Do not use em-dashes. \
 Return only the memoir entry. No commentary, no quotation marks, no markdown.`,
+}
+
+const VOICE_STYLES: Record<string, string> = {
+  mccullough: `Write in the style of David McCullough: sweeping, narrative warmth, accessible and patriotic in spirit, \
+reading like a story that carries the reader forward naturally.`,
+  goodwin: `Write in the style of Doris Kearns Goodwin: intimate and empathetic, attentive to inner life, \
+family bonds, and the emotional texture of experience.`,
+  caro: `Write in the style of Robert Caro: meticulous and detailed, reconstructing events with precision, \
+attentive to place and power and the weight of small moments.`,
+}
+
+function buildFullPrompt(perspective: string, voice: string): string {
+  let prompt = INTENSITY_PROMPTS.full
+  if (perspective === 'third') {
+    prompt += ` Write in third person, referring to the narrator as "they" or by name if one is mentioned.`
+  }
+  if (voice !== 'none' && VOICE_STYLES[voice]) {
+    prompt += ` ${VOICE_STYLES[voice]}`
+  }
+  return prompt
 }
 
 // POST — generate story content at given intensity
@@ -35,7 +58,7 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
   }
-  const { intensity } = parsed.data
+  const { intensity, perspective, voice } = parsed.data
 
   const service = createServiceClient()
 
@@ -96,7 +119,7 @@ export async function POST(
   const userApiKey = await resolveApiKey(user.id, service)
   const { text: story, inputTokens, outputTokens } = await withUserKeyFallback(user.id, service, userApiKey, (key) =>
     claudeComplete({
-      system: INTENSITY_PROMPTS[intensity],
+      system: intensity === 'full' ? buildFullPrompt(perspective, voice) : INTENSITY_PROMPTS[intensity],
       user: sourceText,
       maxTokens: 3000,
       temperature: intensity === 'full' ? 0.8 : 0.6,

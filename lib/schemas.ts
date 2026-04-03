@@ -83,6 +83,8 @@ export type ConversationContinueInput = z.infer<typeof ConversationContinueSchem
 
 export const StoryGenerateSchema = z.object({
   intensity: z.enum(['light', 'medium', 'full']).optional().default('medium'),
+  perspective: z.enum(['first', 'third']).optional().default('first'),
+  voice: z.enum(['none', 'mccullough', 'goodwin', 'caro']).optional().default('none'),
 })
 export type StoryGenerateInput = z.infer<typeof StoryGenerateSchema>
 

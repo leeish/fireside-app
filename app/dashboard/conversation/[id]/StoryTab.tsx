@@ -3,11 +3,20 @@
 import { useEffect, useRef, useState } from 'react'
 
 type Intensity = 'light' | 'medium' | 'full'
+type Perspective = 'first' | 'third'
+type Voice = 'none' | 'mccullough' | 'goodwin' | 'caro'
 
 const INTENSITIES: { value: Intensity; label: string; description: string }[] = [
   { value: 'light', label: 'Light touch', description: 'Your exact words, just structured' },
   { value: 'medium', label: 'Polished', description: 'Rewritten for flow, your voice intact' },
   { value: 'full', label: 'Ghost written', description: 'Elevated prose, memoir style' },
+]
+
+const VOICES: { value: Voice; label: string; description: string }[] = [
+  { value: 'none', label: 'Default', description: 'Elevated memoir style' },
+  { value: 'mccullough', label: 'McCullough', description: 'Sweeping narrative warmth' },
+  { value: 'goodwin', label: 'Goodwin', description: 'Intimate, inner life' },
+  { value: 'caro', label: 'Caro', description: 'Meticulous, detailed' },
 ]
 
 type Entry = {
@@ -30,12 +39,22 @@ export default function StoryTab({
   const [intensity, setIntensity] = useState<Intensity>(
     (entry?.story_intensity as Intensity | null) ?? 'medium'
   )
+  const [perspective, setPerspective] = useState<Perspective>('first')
+  const [voice, setVoice] = useState<Voice>('none')
   const [content, setContent] = useState(entry?.story_content ?? '')
   const [savedContent, setSavedContent] = useState(entry?.story_content ?? '')
   const [generating, setGenerating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [showRegenerateOptions, setShowRegenerateOptions] = useState(false)
+
+  function handleSetIntensity(val: Intensity) {
+    setIntensity(val)
+    if (val !== 'full') {
+      setPerspective('first')
+      setVoice('none')
+    }
+  }
   const editorRef = useRef<HTMLDivElement>(null)
 
   const isDirty = content !== savedContent
@@ -53,7 +72,7 @@ export default function StoryTab({
     const res = await fetch(`/api/conversation/${conversationId}/story`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ intensity }),
+      body: JSON.stringify({ intensity, perspective, voice }),
     })
     if (!res.ok) {
       setError('Something went wrong. Please try again.')
@@ -109,7 +128,7 @@ export default function StoryTab({
               {INTENSITIES.map(opt => (
                 <button
                   key={opt.value}
-                  onClick={() => setIntensity(opt.value)}
+                  onClick={() => handleSetIntensity(opt.value)}
                   className={`px-3 py-3 rounded-xl border text-left transition-all duration-200 ${
                     intensity === opt.value
                       ? 'border-primary/60 bg-primary/5 text-foreground'
@@ -122,6 +141,49 @@ export default function StoryTab({
               ))}
             </div>
           </div>
+
+          {/* Ghost Written options — perspective + voice */}
+          {intensity === 'full' && (
+            <div className="space-y-3 border border-border/40 rounded-xl p-4">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Perspective</p>
+                <div className="flex gap-2">
+                  {(['first', 'third'] as Perspective[]).map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setPerspective(p)}
+                      className={`px-3 h-8 rounded-full border text-xs transition-all duration-200 ${
+                        perspective === p
+                          ? 'border-primary/60 bg-primary/5 text-foreground font-medium'
+                          : 'border-border/50 text-muted-fg hover:border-primary/30 hover:text-foreground'
+                      }`}
+                    >
+                      {p === 'first' ? 'First person' : 'Third person'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Voice</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {VOICES.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setVoice(opt.value)}
+                      className={`px-3 py-2 rounded-xl border text-left transition-all duration-200 ${
+                        voice === opt.value
+                          ? 'border-primary/60 bg-primary/5 text-foreground'
+                          : 'border-border/50 text-muted-fg hover:border-primary/30 hover:text-foreground'
+                      }`}
+                    >
+                      <p className="text-xs font-semibold">{opt.label}</p>
+                      <p className="text-xs mt-0.5 opacity-70 leading-tight">{opt.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
           <div className="text-center space-y-3">
             <p className="text-sm text-muted-fg font-display italic">
               We'll write a journal entry in your voice using your words as the source.
@@ -160,7 +222,7 @@ export default function StoryTab({
                 {INTENSITIES.map(opt => (
                   <button
                     key={opt.value}
-                    onClick={() => setIntensity(opt.value)}
+                    onClick={() => handleSetIntensity(opt.value)}
                     className={`px-3 py-3 rounded-xl border text-left transition-all duration-200 ${
                       intensity === opt.value
                         ? 'border-primary/60 bg-primary/5 text-foreground'
@@ -172,6 +234,47 @@ export default function StoryTab({
                   </button>
                 ))}
               </div>
+              {intensity === 'full' && (
+                <div className="space-y-3 border border-border/40 rounded-xl p-4">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Perspective</p>
+                    <div className="flex gap-2">
+                      {(['first', 'third'] as Perspective[]).map(p => (
+                        <button
+                          key={p}
+                          onClick={() => setPerspective(p)}
+                          className={`px-3 h-8 rounded-full border text-xs transition-all duration-200 ${
+                            perspective === p
+                              ? 'border-primary/60 bg-primary/5 text-foreground font-medium'
+                              : 'border-border/50 text-muted-fg hover:border-primary/30 hover:text-foreground'
+                          }`}
+                        >
+                          {p === 'first' ? 'First person' : 'Third person'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Voice</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {VOICES.map(opt => (
+                        <button
+                          key={opt.value}
+                          onClick={() => setVoice(opt.value)}
+                          className={`px-3 py-2 rounded-xl border text-left transition-all duration-200 ${
+                            voice === opt.value
+                              ? 'border-primary/60 bg-primary/5 text-foreground'
+                              : 'border-border/50 text-muted-fg hover:border-primary/30 hover:text-foreground'
+                          }`}
+                        >
+                          <p className="text-xs font-semibold">{opt.label}</p>
+                          <p className="text-xs mt-0.5 opacity-70 leading-tight">{opt.description}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={handleGenerate}
