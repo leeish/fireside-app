@@ -32,6 +32,7 @@ export default function SettledView({
   entry,
   topic,
   clarificationsCount = 0,
+  titleStyle = 'simple',
 }: {
   conversationId: string
   channel: string
@@ -39,6 +40,7 @@ export default function SettledView({
   entry: Entry
   topic: string
   clarificationsCount?: number
+  titleStyle?: string
 }) {
   const router = useRouter()
 
@@ -64,7 +66,7 @@ export default function SettledView({
   // Auto-generate title if topic still looks like a question
   useEffect(() => {
     if (topic.includes('?')) {
-      generateTitle('evocative')
+      generateTitle(titleStyle)
     }
   }, [])
 

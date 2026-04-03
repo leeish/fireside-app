@@ -10,7 +10,16 @@ type Props = {
   isActive: boolean
   hasApiKey: boolean
   apiKeyStatus: string | null
+  titleStyle: string
 }
+
+const TITLE_STYLE_OPTIONS = [
+  { value: 'simple',    label: 'Simple',    description: 'Plain language, no flourish — just what it\'s about' },
+  { value: 'evocative', label: 'Evocative', description: 'Captures the heart of the memory with feeling' },
+  { value: 'witty',     label: 'Witty',     description: 'A light touch of wordplay or dry humor' },
+  { value: 'playful',   label: 'Playful',   description: 'Warm and approachable, like something you\'d say to a friend' },
+  { value: 'poetic',    label: 'Poetic',    description: 'Imagery or metaphor that gives the title a timeless feel' },
+]
 
 const CADENCE_OPTIONS = [
   { value: 'weekly', label: 'Weekly', description: 'One prompt per week', premium: false },
@@ -18,9 +27,10 @@ const CADENCE_OPTIONS = [
   { value: 'daily', label: 'Daily', description: 'A prompt every day', premium: true },
 ]
 
-export default function SettingsForm({ displayName, email, cadence, isActive, hasApiKey, apiKeyStatus }: Props) {
+export default function SettingsForm({ displayName, email, cadence, isActive, hasApiKey, apiKeyStatus, titleStyle }: Props) {
   const [name, setName] = useState(displayName)
   const [selectedCadence, setSelectedCadence] = useState(cadence)
+  const [selectedTitleStyle, setSelectedTitleStyle] = useState(titleStyle)
   const [active, setActive] = useState(isActive)
   const [autosave, setAutosave] = useState(() => {
     if (typeof window === 'undefined') return true
@@ -63,6 +73,7 @@ export default function SettingsForm({ displayName, email, cadence, isActive, ha
         display_name: name.trim(),
         cadence: selectedCadence,
         is_active: active,
+        title_style: selectedTitleStyle,
       }),
     })
 
@@ -239,6 +250,37 @@ export default function SettingsForm({ displayName, email, cadence, isActive, ha
               }`}
             />
           </button>
+        </div>
+        <div className="pt-4 border-t border-border/40 space-y-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">Conversation title style</p>
+            <p className="text-xs text-muted-fg mt-0.5">How titles are auto-generated when a conversation settles</p>
+          </div>
+          <div className="space-y-2">
+            {TITLE_STYLE_OPTIONS.map(opt => (
+              <label
+                key={opt.value}
+                className={`flex items-center gap-3 p-3 rounded-2xl border cursor-pointer transition-all duration-300 ${
+                  selectedTitleStyle === opt.value
+                    ? 'border-primary/40 bg-primary/5'
+                    : 'border-border/60 hover:border-primary/30'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="title_style"
+                  value={opt.value}
+                  checked={selectedTitleStyle === opt.value}
+                  onChange={() => setSelectedTitleStyle(opt.value)}
+                  className="accent-primary shrink-0"
+                />
+                <div>
+                  <span className="text-sm font-medium text-foreground">{opt.label}</span>
+                  <p className="text-xs text-muted-fg">{opt.description}</p>
+                </div>
+              </label>
+            ))}
+          </div>
         </div>
       </section>
 

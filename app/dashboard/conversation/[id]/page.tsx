@@ -13,6 +13,12 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
 
   const service = createServiceClient()
 
+  const { data: userProfile } = await service
+    .from('users')
+    .select('title_style')
+    .eq('id', user.id)
+    .single()
+
   const { data: conversation } = await service
     .from('conversations')
     .select('id, topic, status, opened_at, channel')
@@ -84,6 +90,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
           entry={entry}
           topic={conversation.topic}
           clarificationsCount={clarificationsCount}
+          titleStyle={userProfile?.title_style ?? 'simple'}
         />
       ) : (
         <ConversationClient

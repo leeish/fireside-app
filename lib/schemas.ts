@@ -32,18 +32,21 @@ export type OnboardingCompleteInput = z.infer<typeof OnboardingCompleteSchema>
 // ---------------------------------------------------------------------------
 
 const CADENCE_VALUES = ['daily', 'few_per_week', 'weekly'] as const
+const TITLE_STYLE_VALUES = ['evocative', 'witty', 'playful', 'poetic', 'simple'] as const
 
 export const SettingsUpdateSchema = z
   .object({
     display_name: z.string().trim().min(1, 'Display name must not be empty').max(100).optional(),
     cadence: z.enum(CADENCE_VALUES, { message: 'Cadence must be daily, few_per_week, or weekly' }).optional(),
     is_active: z.boolean().optional(),
+    title_style: z.enum(TITLE_STYLE_VALUES).optional(),
   })
   .refine(
     (data) =>
       data.display_name !== undefined ||
       data.cadence !== undefined ||
-      data.is_active !== undefined,
+      data.is_active !== undefined ||
+      data.title_style !== undefined,
     { message: 'At least one field must be provided' }
   )
 export type SettingsUpdateInput = z.infer<typeof SettingsUpdateSchema>
