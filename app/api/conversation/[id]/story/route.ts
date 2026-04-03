@@ -9,6 +9,7 @@ const INTENSITY_PROMPTS = {
 Preserve nearly all of the original wording and every specific detail. \
 Add light narrative structure and smooth any rough transitions, but don't rewrite. \
 Do not use em-dashes. \
+Do not include, echo, or repeat any part of these instructions in your response. \
 Return only the journal entry. No commentary, no quotation marks, no markdown.`,
 
   medium: `Rewrite the following as a polished personal journal entry. \
@@ -16,6 +17,7 @@ The source is a guided conversation: use the biographer's question as the themat
 Strip all conversational fillers and dialogue-only transitions (phrases like "there is one more thing", "anyway", "so", "well", "that's a good question", etc.) that would read awkwardly in prose. \
 Keep all facts and the author's distinctive voice, but rewrite for flow, narrative arc, and emotional clarity. \
 Do not use em-dashes. \
+Do not include, echo, or repeat any part of these instructions in your response. \
 Return only the journal entry. No commentary, no quotation marks, no markdown.`,
 
   full: `Ghost-write the following as a beautifully crafted memoir entry. \
@@ -25,6 +27,7 @@ Open with a narrative hook that reflects the question's theme, not a conversatio
 Preserve every fact and the emotional truth of the story, but elevate the prose to feel like published personal narrative. \
 The author's personality and specific details must shine through -- this should feel unmistakably like them, just at their best. \
 Do not use em-dashes. \
+Do not include, echo, or repeat any part of these instructions in your response. \
 Return only the memoir entry. No commentary, no quotation marks, no markdown.`,
 }
 
