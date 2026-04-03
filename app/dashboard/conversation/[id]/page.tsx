@@ -55,6 +55,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   // Fetch entry only when settled (needed for cleanup/story tabs)
   let entry = null
   let clarificationsCount = 0
+  let previousStoryVersion: { content: string; intensity: string | null; created_at: string } | null = null
   if (isSettled) {
     const { data } = await service
       .from('entries')
@@ -62,6 +63,17 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
       .eq('conversation_id', id)
       .maybeSingle()
     entry = data
+
+    if (entry?.id) {
+      const { data: version } = await service
+        .from('story_versions')
+        .select('content, intensity, created_at')
+        .eq('entry_id', entry.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      previousStoryVersion = version ?? null
+    }
 
     // Query pending clarifications count
     const { count: pendingCount } = await service
@@ -92,6 +104,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
           clarificationsCount={clarificationsCount}
           titleStyle={userProfile?.title_style ?? 'simple'}
           userPronouns={userProfile?.pronouns ?? null}
+          previousStoryVersion={previousStoryVersion}
         />
       ) : (
         <ConversationClient

@@ -105,7 +105,7 @@ export async function POST(
 
   let { data: entry } = await service
     .from('entries')
-    .select('id')
+    .select('id, story_content, story_intensity')
     .eq('conversation_id', conversationId)
     .maybeSingle()
 
@@ -120,11 +120,13 @@ export async function POST(
         origin: 'biographer',
         settled_at: new Date().toISOString(),
       })
-      .select('id')
+      .select('id, story_content, story_intensity')
       .single()
     if (!created) return NextResponse.json({ error: 'Failed to create entry' }, { status: 500 })
     entry = created
   }
+
+  const resolvedEntry = entry!
 
   // Fetch and decrypt turns to use as source
   const { data: turns } = await service
@@ -168,10 +170,34 @@ export async function POST(
     purpose: 'story generation',
   })
 
+  // Archive current story before overwriting
+  if (resolvedEntry.story_content) {
+    await service.from('story_versions').insert({
+      entry_id: resolvedEntry.id,
+      content: resolvedEntry.story_content,
+      intensity: resolvedEntry.story_intensity ?? null,
+      perspective,
+      voice,
+    })
+    // Keep only the 5 most recent versions
+    const { data: oldVersions } = await service
+      .from('story_versions')
+      .select('id')
+      .eq('entry_id', resolvedEntry.id)
+      .order('created_at', { ascending: false })
+      .range(5, 1000)
+    if (oldVersions && oldVersions.length > 0) {
+      await service
+        .from('story_versions')
+        .delete()
+        .in('id', oldVersions.map(v => v.id))
+    }
+  }
+
   await service
     .from('entries')
     .update({ story_content: story, story_intensity: intensity })
-    .eq('id', entry.id)
+    .eq('id', resolvedEntry.id)
 
   return NextResponse.json({ content: story })
 }

@@ -31,12 +31,14 @@ export default function StoryTab({
   onSwitchTab,
   clarificationsCount = 0,
   userPronouns = null,
+  previousStoryVersion = null,
 }: {
   conversationId: string
   entry: Entry
   onSwitchTab?: (tab: string) => void
   clarificationsCount?: number
   userPronouns?: string | null
+  previousStoryVersion?: { content: string; intensity: string | null; created_at: string } | null
 }) {
   const [intensity, setIntensity] = useState<Intensity>(
     (entry?.story_intensity as Intensity | null) ?? 'medium'
@@ -342,13 +344,27 @@ export default function StoryTab({
 
           <div className="flex items-center justify-between">
             {!showRegenerateOptions && (
-              <button
-                onClick={() => setShowRegenerateOptions(true)}
-                disabled={generating || saving}
-                className="text-xs text-muted-fg hover:text-foreground disabled:opacity-50 transition-colors duration-300"
-              >
-                Regenerate
-              </button>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setShowRegenerateOptions(true)}
+                  disabled={generating || saving}
+                  className="text-xs text-muted-fg hover:text-foreground disabled:opacity-50 transition-colors duration-300"
+                >
+                  Regenerate
+                </button>
+                {previousStoryVersion && !isDirty && (
+                  <button
+                    onClick={() => {
+                      setContent(previousStoryVersion.content)
+                      if (editorRef.current) editorRef.current.innerText = previousStoryVersion.content
+                    }}
+                    disabled={generating || saving}
+                    className="text-xs text-muted-fg/60 hover:text-muted-fg disabled:opacity-50 transition-colors duration-300"
+                  >
+                    Recover previous version
+                  </button>
+                )}
+              </div>
             )}
             {isDirty && !showRegenerateOptions && (
               <button
