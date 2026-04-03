@@ -40,13 +40,15 @@ export const SettingsUpdateSchema = z
     cadence: z.enum(CADENCE_VALUES, { message: 'Cadence must be daily, few_per_week, or weekly' }).optional(),
     is_active: z.boolean().optional(),
     title_style: z.enum(TITLE_STYLE_VALUES).optional(),
+    pronouns: z.string().max(50).nullable().optional(),
   })
   .refine(
     (data) =>
       data.display_name !== undefined ||
       data.cadence !== undefined ||
       data.is_active !== undefined ||
-      data.title_style !== undefined,
+      data.title_style !== undefined ||
+      data.pronouns !== undefined,
     { message: 'At least one field must be provided' }
   )
 export type SettingsUpdateInput = z.infer<typeof SettingsUpdateSchema>
@@ -85,6 +87,7 @@ export const StoryGenerateSchema = z.object({
   intensity: z.enum(['light', 'medium', 'full']).optional().default('medium'),
   perspective: z.enum(['first', 'third']).optional().default('first'),
   voice: z.enum(['none', 'mccullough', 'goodwin', 'caro']).optional().default('none'),
+  pronouns: z.string().max(50).optional(),
 })
 export type StoryGenerateInput = z.infer<typeof StoryGenerateSchema>
 

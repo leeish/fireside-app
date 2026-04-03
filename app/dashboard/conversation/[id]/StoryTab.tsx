@@ -30,17 +30,20 @@ export default function StoryTab({
   entry,
   onSwitchTab,
   clarificationsCount = 0,
+  userPronouns = null,
 }: {
   conversationId: string
   entry: Entry
   onSwitchTab?: (tab: string) => void
   clarificationsCount?: number
+  userPronouns?: string | null
 }) {
   const [intensity, setIntensity] = useState<Intensity>(
     (entry?.story_intensity as Intensity | null) ?? 'medium'
   )
   const [perspective, setPerspective] = useState<Perspective>('first')
   const [voice, setVoice] = useState<Voice>('none')
+  const [pronouns, setPronouns] = useState<string | null>(userPronouns)
   const [content, setContent] = useState(entry?.story_content ?? '')
   const [savedContent, setSavedContent] = useState(entry?.story_content ?? '')
   const [generating, setGenerating] = useState(false)
@@ -55,6 +58,9 @@ export default function StoryTab({
       setVoice('none')
     }
   }
+
+  const PRONOUN_OPTIONS = ['he/him', 'she/her', 'they/them']
+  const showPronounPicker = intensity === 'full' && perspective === 'third' && !userPronouns
   const editorRef = useRef<HTMLDivElement>(null)
 
   const isDirty = content !== savedContent
@@ -72,7 +78,7 @@ export default function StoryTab({
     const res = await fetch(`/api/conversation/${conversationId}/story`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ intensity, perspective, voice }),
+      body: JSON.stringify({ intensity, perspective, voice, pronouns: pronouns ?? undefined }),
     })
     if (!res.ok) {
       setError('Something went wrong. Please try again.')
@@ -182,6 +188,26 @@ export default function StoryTab({
                   ))}
                 </div>
               </div>
+              {showPronounPicker && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">How should we refer to you?</p>
+                  <div className="flex flex-wrap gap-2">
+                    {PRONOUN_OPTIONS.map(p => (
+                      <button
+                        key={p}
+                        onClick={() => setPronouns(pronouns === p ? null : p)}
+                        className={`px-3 h-8 rounded-full border text-xs transition-all duration-200 ${
+                          pronouns === p
+                            ? 'border-primary/60 bg-primary/5 text-foreground font-medium'
+                            : 'border-border/50 text-muted-fg hover:border-primary/30 hover:text-foreground'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <div className="text-center space-y-3">
@@ -273,6 +299,26 @@ export default function StoryTab({
                       ))}
                     </div>
                   </div>
+                  {showPronounPicker && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">How should we refer to you?</p>
+                      <div className="flex flex-wrap gap-2">
+                        {PRONOUN_OPTIONS.map(p => (
+                          <button
+                            key={p}
+                            onClick={() => setPronouns(pronouns === p ? null : p)}
+                            className={`px-3 h-8 rounded-full border text-xs transition-all duration-200 ${
+                              pronouns === p
+                                ? 'border-primary/60 bg-primary/5 text-foreground font-medium'
+                                : 'border-border/50 text-muted-fg hover:border-primary/30 hover:text-foreground'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="flex gap-2">

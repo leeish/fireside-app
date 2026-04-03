@@ -33,6 +33,7 @@ export default function SettledView({
   topic,
   clarificationsCount = 0,
   titleStyle = 'simple',
+  userPronouns = null,
 }: {
   conversationId: string
   channel: string
@@ -41,6 +42,7 @@ export default function SettledView({
   topic: string
   clarificationsCount?: number
   titleStyle?: string
+  userPronouns?: string | null
 }) {
   const router = useRouter()
 
@@ -264,6 +266,7 @@ export default function SettledView({
           entry={entry}
           onSwitchTab={(t) => setTab(t as Tab)}
           clarificationsCount={clarificationsCount}
+          userPronouns={userPronouns}
         />
       </div>
     </div>

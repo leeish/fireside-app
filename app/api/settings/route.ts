@@ -12,12 +12,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { display_name, cadence, is_active, title_style } = parsed.data
+  const { display_name, cadence, is_active, title_style, pronouns } = parsed.data
   const updates: Record<string, unknown> = {}
   if (display_name !== undefined) updates.display_name = display_name
   if (cadence !== undefined) updates.cadence = cadence
   if (is_active !== undefined) updates.is_active = is_active
   if (title_style !== undefined) updates.title_style = title_style
+  if (pronouns !== undefined) updates.pronouns = pronouns
 
   const service = createServiceClient()
   const { error } = await service

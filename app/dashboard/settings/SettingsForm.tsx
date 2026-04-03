@@ -11,7 +11,14 @@ type Props = {
   hasApiKey: boolean
   apiKeyStatus: string | null
   titleStyle: string
+  pronouns: string | null
 }
+
+const PRONOUN_OPTIONS = [
+  { value: 'he/him',   label: 'He/him' },
+  { value: 'she/her',  label: 'She/her' },
+  { value: 'they/them', label: 'They/them' },
+]
 
 const TITLE_STYLE_OPTIONS = [
   { value: 'simple',    label: 'Simple',    description: 'Plain language, no flourish — just what it\'s about' },
@@ -27,10 +34,11 @@ const CADENCE_OPTIONS = [
   { value: 'daily', label: 'Daily', description: 'A prompt every day', premium: true },
 ]
 
-export default function SettingsForm({ displayName, email, cadence, isActive, hasApiKey, apiKeyStatus, titleStyle }: Props) {
+export default function SettingsForm({ displayName, email, cadence, isActive, hasApiKey, apiKeyStatus, titleStyle, pronouns }: Props) {
   const [name, setName] = useState(displayName)
   const [selectedCadence, setSelectedCadence] = useState(cadence)
   const [selectedTitleStyle, setSelectedTitleStyle] = useState(titleStyle)
+  const [selectedPronouns, setSelectedPronouns] = useState<string | null>(pronouns)
   const [active, setActive] = useState(isActive)
   const [autosave, setAutosave] = useState(() => {
     if (typeof window === 'undefined') return true
@@ -74,6 +82,7 @@ export default function SettingsForm({ displayName, email, cadence, isActive, ha
         cadence: selectedCadence,
         is_active: active,
         title_style: selectedTitleStyle,
+        pronouns: selectedPronouns,
       }),
     })
 
@@ -280,6 +289,37 @@ export default function SettingsForm({ displayName, email, cadence, isActive, ha
                 </div>
               </label>
             ))}
+          </div>
+        </div>
+        <div className="pt-4 border-t border-border/40 space-y-3">
+          <div>
+            <p className="text-sm font-medium text-foreground">Pronouns</p>
+            <p className="text-xs text-muted-fg mt-0.5">Used when ghost-writing your story in third person</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {PRONOUN_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSelectedPronouns(selectedPronouns === opt.value ? null : opt.value)}
+                className={`px-4 h-9 rounded-full border text-sm transition-all duration-200 ${
+                  selectedPronouns === opt.value
+                    ? 'border-primary/60 bg-primary/5 text-foreground font-medium'
+                    : 'border-border/60 text-muted-fg hover:border-primary/30 hover:text-foreground'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+            {selectedPronouns && (
+              <button
+                type="button"
+                onClick={() => setSelectedPronouns(null)}
+                className="px-4 h-9 rounded-full text-xs text-muted-fg/60 hover:text-muted-fg transition-colors duration-200"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
       </section>

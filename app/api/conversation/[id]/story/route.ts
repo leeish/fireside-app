@@ -32,15 +32,32 @@ family bonds, and the emotional texture of experience.`,
 attentive to place and power and the weight of small moments.`,
 }
 
-function buildFullPrompt(perspective: string, voice: string): string {
-  let prompt = INTENSITY_PROMPTS.full
-  if (perspective === 'third') {
-    prompt += ` Write in third person, referring to the narrator as "they" or by name if one is mentioned.`
+function buildSystemPrompt(
+  intensity: string,
+  perspective: string,
+  voice: string,
+  authorName: string | null,
+  effectivePronouns: string | null,
+): string {
+  const nameLine = authorName ? `The person telling this story is ${authorName}. ` : ''
+  let base = nameLine + INTENSITY_PROMPTS[intensity as keyof typeof INTENSITY_PROMPTS]
+
+  if (intensity === 'full') {
+    if (perspective === 'third') {
+      if (authorName && effectivePronouns) {
+        base += ` Write in third person, referring to ${authorName} using ${effectivePronouns}.`
+      } else if (authorName) {
+        base += ` Write in third person. Infer pronouns from how the author refers to themselves in the transcript; if unclear, use ${authorName}'s name rather than guessing.`
+      } else {
+        base += ` Write in third person. Infer pronouns from how the author refers to themselves in the transcript; if unclear, use their name rather than guessing.`
+      }
+    }
+    if (voice !== 'none' && VOICE_STYLES[voice]) {
+      base += ` ${VOICE_STYLES[voice]}`
+    }
   }
-  if (voice !== 'none' && VOICE_STYLES[voice]) {
-    prompt += ` ${VOICE_STYLES[voice]}`
-  }
-  return prompt
+
+  return base
 }
 
 // POST — generate story content at given intensity
@@ -58,9 +75,18 @@ export async function POST(
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid request', details: parsed.error.flatten() }, { status: 400 })
   }
-  const { intensity, perspective, voice } = parsed.data
+  const { intensity, perspective, voice, pronouns: clientPronouns } = parsed.data
 
   const service = createServiceClient()
+
+  const { data: userProfile } = await service
+    .from('users')
+    .select('display_name, pronouns')
+    .eq('id', user.id)
+    .single()
+
+  const authorName = userProfile?.display_name ?? null
+  const effectivePronouns = clientPronouns ?? userProfile?.pronouns ?? null
 
   const { data: conversation } = await service
     .from('conversations')
@@ -119,7 +145,7 @@ export async function POST(
   const userApiKey = await resolveApiKey(user.id, service)
   const { text: story, inputTokens, outputTokens } = await withUserKeyFallback(user.id, service, userApiKey, (key) =>
     claudeComplete({
-      system: intensity === 'full' ? buildFullPrompt(perspective, voice) : INTENSITY_PROMPTS[intensity],
+      system: buildSystemPrompt(intensity, perspective, voice, authorName, effectivePronouns),
       user: sourceText,
       maxTokens: 3000,
       temperature: intensity === 'full' ? 0.8 : 0.6,

@@ -15,7 +15,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
 
   const { data: userProfile } = await service
     .from('users')
-    .select('title_style')
+    .select('title_style, pronouns')
     .eq('id', user.id)
     .single()
 
@@ -91,6 +91,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
           topic={conversation.topic}
           clarificationsCount={clarificationsCount}
           titleStyle={userProfile?.title_style ?? 'simple'}
+          userPronouns={userProfile?.pronouns ?? null}
         />
       ) : (
         <ConversationClient
