@@ -64,12 +64,12 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
     entry = data
 
     // Query pending clarifications count
-    const { data: clarifications } = await service
+    const { count: pendingCount } = await service
       .from('clarifications')
-      .select('id', { count: 'exact', head: true })
+      .select('*', { count: 'exact', head: true })
       .eq('conversation_id', id)
       .eq('status', 'pending')
-    clarificationsCount = clarifications?.length ?? 0
+    clarificationsCount = pendingCount ?? 0
   }
 
   return (

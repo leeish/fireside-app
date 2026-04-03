@@ -322,6 +322,11 @@ describe('narrative graph', () => {
   })
 
   describe('findCompletenessGaps', () => {
+    it('returns no gaps for empty graph', () => {
+      const graph = emptyGraph()
+      expect(findCompletenessGaps(graph)).toEqual([])
+    })
+
     it('identifies people missing relationship', () => {
       const graph = emptyGraph()
       graph.people.Person1 = { mentions: 1, facts: [], unexplored: [] } // No relationship
@@ -340,12 +345,61 @@ describe('narrative graph', () => {
       expect(gaps.find(g => g.entity_key === 'Person2')).toBeUndefined()
     })
 
-    it('identifies events missing year/era', () => {
+    it('person with relationship set generates no gap', () => {
+      const graph = emptyGraph()
+      graph.people.Dad = { mentions: 3, facts: [], unexplored: [], relationship: 'father' }
+      expect(findCompletenessGaps(graph)).toHaveLength(0)
+    })
+
+    it('string events always generate year and place gaps', () => {
       const graph = emptyGraph()
       graph.events = ['wedding', 'trip to Europe']
 
       const gaps = findCompletenessGaps(graph)
       expect(gaps.filter(g => g.entity_type === 'event' && g.field === 'year')).toHaveLength(2)
+      expect(gaps.filter(g => g.entity_type === 'event' && g.field === 'place')).toHaveLength(2)
+      expect(gaps).toHaveLength(4)
+    })
+
+    it('EventNode with both year and place generates no gaps', () => {
+      const graph = emptyGraph()
+      // Cast as any since the type is string[] but EventNode is handled at runtime
+      graph.events = [{ name: 'Alaska cruise', year: '2019', place: 'Alaska' } as unknown as string]
+
+      const gaps = findCompletenessGaps(graph)
+      expect(gaps.filter(g => g.entity_type === 'event')).toHaveLength(0)
+    })
+
+    it('EventNode with year but no place generates one place gap', () => {
+      const graph = emptyGraph()
+      graph.events = [{ name: 'graduation', year: '1995' } as unknown as string]
+
+      const gaps = findCompletenessGaps(graph)
+      const eventGaps = gaps.filter(g => g.entity_type === 'event')
+      expect(eventGaps).toHaveLength(1)
+      expect(eventGaps[0].field).toBe('place')
+    })
+
+    it('EventNode with era but no place generates one place gap', () => {
+      const graph = emptyGraph()
+      graph.events = [{ name: 'mission', era: 'youth' } as unknown as string]
+
+      const gaps = findCompletenessGaps(graph)
+      const eventGaps = gaps.filter(g => g.entity_type === 'event')
+      expect(eventGaps).toHaveLength(1)
+      expect(eventGaps[0].field).toBe('place')
+    })
+
+    it('mixed graph returns only gapped entities', () => {
+      const graph = emptyGraph()
+      graph.people.Mom = { mentions: 2, facts: [], unexplored: [], relationship: 'mother' }
+      graph.people.Stranger = { mentions: 1, facts: [], unexplored: [] }
+      graph.events = ['road trip']
+
+      const gaps = findCompletenessGaps(graph)
+      expect(gaps.find(g => g.entity_key === 'Mom')).toBeUndefined()
+      expect(gaps.filter(g => g.entity_key === 'Stranger')).toHaveLength(1)
+      expect(gaps.filter(g => g.entity_type === 'event')).toHaveLength(2)
     })
   })
 

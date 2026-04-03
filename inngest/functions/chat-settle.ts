@@ -119,19 +119,34 @@ export const chatSettle = inngest.createFunction(
         .in('id', userTurnIds)
     }
 
-    // Detect completeness gaps and store pending clarifications
+    // Detect completeness gaps and store pending clarifications (skip already-existing ones)
     const gaps = findCompletenessGaps(updatedGraph)
     if (gaps.length > 0) {
-      const clarifications = gaps.map(gap => ({
-        user_id: userId,
-        conversation_id: conversationId,
-        entity_type: gap.entity_type,
-        entity_key: gap.entity_key,
-        field: gap.field,
-        question: gap.question,
-        status: 'pending',
-      }))
-      await supabase.from('clarifications').insert(clarifications)
+      const { data: existing } = await supabase
+        .from('clarifications')
+        .select('entity_type, entity_key, field')
+        .eq('user_id', userId)
+        .in('status', ['pending', 'answered'])
+      const existingSet = new Set(
+        (existing ?? []).map(r => `${r.entity_type}:${r.entity_key}:${r.field}`)
+      )
+      const newGaps = gaps.filter(
+        g => !existingSet.has(`${g.entity_type}:${g.entity_key}:${g.field}`)
+      )
+      if (newGaps.length > 0) {
+        const { error: insertError } = await supabase.from('clarifications').insert(
+          newGaps.map(gap => ({
+            user_id: userId,
+            conversation_id: conversationId,
+            entity_type: gap.entity_type,
+            entity_key: gap.entity_key,
+            field: gap.field,
+            question: gap.question,
+            status: 'pending',
+          }))
+        )
+        if (insertError) throw new Error(`Failed to insert clarifications: ${insertError.message}`)
+      }
     }
 
     // Create entry row if it doesn't exist, then generate embedding from user text
