@@ -4,7 +4,7 @@ import { claudeComplete, logTokenUsage, getClaudeClient, resolveApiKey, withUser
 import { decrypt } from '@/lib/crypto'
 import { buildSystemPrompt } from '@/lib/craft-system'
 import { generateEmbedding } from '@/lib/embeddings'
-import type { NarrativeGraph } from '@/lib/graph'
+import { normalizeGraph, emptyGraph, type NarrativeGraph } from '@/lib/graph'
 import { selectTopThreads } from './select-next-prompt-engine'
 
 type SelectNextPromptEvent = { data: { userId: string; skipScheduling?: boolean } }
@@ -86,8 +86,8 @@ export const selectNextPrompt = inngest.createFunction(
       .single()
 
     const graph: NarrativeGraph = narrativeRow?.graph
-      ? JSON.parse(decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!))
-      : {} as NarrativeGraph
+      ? normalizeGraph(JSON.parse(decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!)))
+      : emptyGraph()
 
     // Seed display_name from user record if missing in graph
     if (!graph.display_name) {
