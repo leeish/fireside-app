@@ -34,6 +34,7 @@ export default function ConversationClient({
   const [response, setResponse] = useState('')
   const [loading, setLoading] = useState(false)
   const [waitingForAI, setWaitingForAI] = useState(false)
+  const [slowWarning, setSlowWarning] = useState(false)
   const [error, setError] = useState('')
   const [isRecording, setIsRecording] = useState(false)
   const [isSpeechSupported, setIsSpeechSupported] = useState(false)
@@ -58,16 +59,21 @@ export default function ConversationClient({
   useEffect(() => {
     if (!waitingForAI) {
       if (pollRef.current) clearInterval(pollRef.current)
+      setSlowWarning(false)
       return
     }
 
     pollRef.current = setInterval(async () => {
       const elapsed = Date.now() - (pollStartRef.current ?? Date.now())
-      if (elapsed > 30000) {
+      if (elapsed > 300000) {
         clearInterval(pollRef.current!)
         setWaitingForAI(false)
+        setSlowWarning(false)
         setError('The biographer didn\'t respond in time. Please try again.')
         return
+      }
+      if (elapsed > 30000) {
+        setSlowWarning(true)
       }
 
       try {
@@ -79,6 +85,7 @@ export default function ConversationClient({
           setTurns(data.turns)
           setStatus(data.status)
           setWaitingForAI(false)
+          setSlowWarning(false)
         }
       } catch {
         // silent — will retry
@@ -235,7 +242,13 @@ export default function ConversationClient({
 
         {waitingForAI && (
           <div>
-            <p className="font-display italic text-muted-fg text-sm animate-pulse">Thinking...</p>
+            {slowWarning ? (
+              <p className="font-display italic text-muted-fg text-sm">
+                This is taking a bit longer than usual. You can wait here or come back in a moment -- it should be done soon.
+              </p>
+            ) : (
+              <p className="font-display italic text-muted-fg text-sm animate-pulse">Thinking...</p>
+            )}
           </div>
         )}
 
