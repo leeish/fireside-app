@@ -14,7 +14,7 @@ export function getAIClient() {
 }
 
 export function getClaudeClient(apiKey?: string) {
-  const client = new Anthropic({ apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY })
+  const client = new Anthropic({ apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY, maxRetries: 5 })
   const model = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6'
   return { client, model }
 }
@@ -79,6 +79,7 @@ export async function chatComplete({
   if (vendor === 'anthropic') {
     const client = new Anthropic({
       apiKey: apiKey ?? process.env.ANTHROPIC_API_KEY,
+      maxRetries: 5,
     })
 
     // Apply cache control if enabled
