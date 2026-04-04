@@ -31,10 +31,12 @@ const PROMPTS = [
 ]
 
 type Stage = 'pick' | 'answer' | 'submitted' | 'draft-saved' | 'email-sent'
+type Mode = null | 'write' | 'biographer'
 
 export default function FirstPromptPicker({ userName }: { userName: string }) {
   const router = useRouter()
   const [stage, setStage] = useState<Stage>('pick')
+  const [mode, setMode] = useState<Mode>(null)
   const [selected, setSelected] = useState<typeof PROMPTS[0] | null>(null)
   const [response, setResponse] = useState('')
   const [loading, setLoading] = useState(false)
@@ -78,6 +80,20 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
     recognitionRef.current = recognition
     recognition.start()
     setIsRecording(true)
+  }
+
+  async function handleStartChat() {
+    if (!selected) return
+    setLoading(true)
+    setError('')
+    const res = await fetch('/api/prompt/start-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ promptText: selected.text, promptCategory: selected.category }),
+    })
+    if (!res.ok) { setError('Something went wrong. Please try again.'); setLoading(false); return }
+    const data = await res.json()
+    router.push(`/dashboard/conversation/${data.conversationId}`)
   }
 
   async function handleBegin() {
@@ -166,65 +182,100 @@ export default function FirstPromptPicker({ userName }: { userName: string }) {
       <div className="space-y-5">
         <div>
           <button
-            onClick={() => { setStage('pick'); setResponse('') }}
+            onClick={() => { setStage('pick'); setMode(null); setResponse('') }}
             className="text-xs text-muted-fg hover:text-foreground mb-4 flex items-center gap-1 transition-colors duration-300"
           >
             &larr; Choose a different question
           </button>
           <p className="font-display italic text-foreground text-lg leading-relaxed">{selected.text}</p>
         </div>
-        <div className="relative">
-          <textarea
-            value={response}
-            onChange={e => setResponse(e.target.value)}
-            placeholder="Take your time. There's no wrong answer."
-            rows={7}
-            autoFocus
-            className="w-full px-5 py-4 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none transition-all duration-300" style={{ backgroundColor: "var(--fs-surface)" }}
-          />
-          {isSpeechSupported && (
+
+        {/* Mode picker */}
+        {mode === null && (
+          <div className="flex flex-col gap-2 pt-1">
             <button
-              type="button"
-              onClick={toggleRecording}
-              title={isRecording ? 'Stop recording' : 'Speak your answer'}
-              className={`absolute bottom-3 right-3 p-1.5 rounded-full transition-all duration-300 ${
-                isRecording
-                  ? 'text-red-500 bg-red-50 hover:bg-red-100 animate-pulse'
-                  : 'text-muted-fg hover:text-foreground hover:bg-muted'
-              }`}
+              onClick={handleStartChat}
+              disabled={loading}
+              className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
+              style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                <path d="M8.25 4.5a3.75 3.75 0 1 1 7.5 0v8.25a3.75 3.75 0 1 1-7.5 0V4.5Z" />
-                <path d="M6 10.5a.75.75 0 0 1 .75.75v1.5a5.25 5.25 0 1 0 10.5 0v-1.5a.75.75 0 0 1 1.5 0v1.5a6.751 6.751 0 0 1-6 6.709v2.291h3a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5h3v-2.291a6.751 6.751 0 0 1-6-6.709v-1.5A.75.75 0 0 1 6 10.5Z" />
-              </svg>
+              {loading ? 'Starting...' : 'Talk it through with the biographer'}
             </button>
-          )}
-        </div>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <div className="flex flex-col gap-2">
-          <button
-            onClick={handleBegin}
-            disabled={loading || !response.trim()}
-            className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
-            style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
-          >
-            {loading ? 'Saving...' : 'Begin my story'}
-          </button>
-          <button
-            onClick={handleFinishLater}
-            disabled={loading}
-            className="w-full h-12 border-2 border-border text-foreground/70 text-sm font-medium rounded-full hover:border-primary/40 hover:bg-muted transition-all duration-300 disabled:opacity-40"
-          >
-            Finish later
-          </button>
-          <button
-            onClick={handleEmailInstead}
-            disabled={loading}
-            className="w-full py-2 text-muted-fg text-sm hover:text-foreground transition-colors duration-300 disabled:opacity-40"
-          >
-            Email me this question instead
-          </button>
-        </div>
+            <button
+              onClick={() => setMode('write')}
+              disabled={loading}
+              className="w-full h-12 border-2 border-border text-foreground/70 text-sm font-medium rounded-full hover:border-primary/40 hover:bg-muted transition-all duration-300 disabled:opacity-40"
+            >
+              Write it yourself
+            </button>
+            <button
+              onClick={handleEmailInstead}
+              disabled={loading}
+              className="w-full py-2 text-muted-fg text-sm hover:text-foreground transition-colors duration-300 disabled:opacity-40"
+            >
+              Email me this question instead
+            </button>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+          </div>
+        )}
+
+        {/* Free-form write mode */}
+        {mode === 'write' && (
+          <>
+            <div className="relative">
+              <textarea
+                value={response}
+                onChange={e => setResponse(e.target.value)}
+                placeholder="Take your time. There's no wrong answer."
+                rows={7}
+                autoFocus
+                className="w-full px-5 py-4 border border-border rounded-2xl text-sm text-foreground placeholder:text-muted-fg/60 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 resize-none transition-all duration-300" style={{ backgroundColor: "var(--fs-surface)" }}
+              />
+              {isSpeechSupported && (
+                <button
+                  type="button"
+                  onClick={toggleRecording}
+                  title={isRecording ? 'Stop recording' : 'Speak your answer'}
+                  className={`absolute bottom-3 right-3 p-1.5 rounded-full transition-all duration-300 ${
+                    isRecording
+                      ? 'text-red-500 bg-red-50 hover:bg-red-100 animate-pulse'
+                      : 'text-muted-fg hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                    <path d="M8.25 4.5a3.75 3.75 0 1 1 7.5 0v8.25a3.75 3.75 0 1 1-7.5 0V4.5Z" />
+                    <path d="M6 10.5a.75.75 0 0 1 .75.75v1.5a5.25 5.25 0 1 0 10.5 0v-1.5a.75.75 0 0 1 1.5 0v1.5a6.751 6.751 0 0 1-6 6.709v2.291h3a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5h3v-2.291a6.751 6.751 0 0 1-6-6.709v-1.5A.75.75 0 0 1 6 10.5Z" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleBegin}
+                disabled={loading || !response.trim()}
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-white text-sm font-semibold rounded-full hover:scale-105 active:scale-95 disabled:opacity-40 disabled:scale-100 transition-all duration-300"
+                style={{ boxShadow: '0 4px 20px -2px rgba(93, 112, 82, 0.20)' }}
+              >
+                {loading ? 'Saving...' : 'Begin my story'}
+              </button>
+              <button
+                onClick={handleFinishLater}
+                disabled={loading}
+                className="w-full h-12 border-2 border-border text-foreground/70 text-sm font-medium rounded-full hover:border-primary/40 hover:bg-muted transition-all duration-300 disabled:opacity-40"
+              >
+                Finish later
+              </button>
+              <button
+                onClick={handleEmailInstead}
+                disabled={loading}
+                className="w-full py-2 text-muted-fg text-sm hover:text-foreground transition-colors duration-300 disabled:opacity-40"
+              >
+                Email me this question instead
+              </button>
+            </div>
+          </>
+        )}
       </div>
     )
   }
