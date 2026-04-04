@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt, encrypt } from '@/lib/crypto'
 import { getAIClient, logTokenUsage } from '@/lib/ai'
 import { generateEmbedding } from '@/lib/embeddings'
-import { mergeExtraction, normalizeGraph, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
+import { mergeExtraction, normalizeGraph, emptyGraph, findEntryGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 
 type ChatSettleEvent = {
   data: {
@@ -120,7 +120,7 @@ export const chatSettle = inngest.createFunction(
     }
 
     // Detect completeness gaps and store pending clarifications (skip already-existing ones)
-    const gaps = findCompletenessGaps(updatedGraph)
+    const gaps = findEntryGaps(extraction, updatedGraph)
     if (gaps.length > 0) {
       const { data: existing } = await supabase
         .from('clarifications')
