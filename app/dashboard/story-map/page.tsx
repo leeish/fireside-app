@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
-import type { NarrativeGraph } from '@/lib/graph'
+import { normalizeGraph } from '@/lib/graph'
 import StoryMapClient from './StoryMapClient'
 
 export default async function StoryMapPage() {
@@ -25,8 +25,8 @@ export default async function StoryMapPage() {
     )
   }
 
-  const graph: NarrativeGraph = JSON.parse(
-    decrypt(narrative.graph as string, process.env.MEMORY_ENCRYPTION_KEY!)
+  const graph = normalizeGraph(
+    JSON.parse(decrypt(narrative.graph as string, process.env.MEMORY_ENCRYPTION_KEY!))
   )
 
   return <StoryMapClient graph={graph} />

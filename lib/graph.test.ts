@@ -5,6 +5,8 @@ import {
   buildGraphBriefing,
   findCompletenessGaps,
   applyGraphPatch,
+  normalizeGraph,
+  findEntryGaps,
   type NarrativeGraph,
   type ExtractionResult,
 } from './graph'
@@ -16,7 +18,7 @@ describe('narrative graph', () => {
       expect(graph.display_name).toBe('Alice')
       expect(graph.total_entries).toBe(0)
       expect(graph.people).toEqual({})
-      expect(graph.places).toEqual([])
+      expect(graph.places).toEqual({})
       expect(graph.open_threads).toEqual([])
       expect(graph.entry_log).toBe('')
     })
@@ -97,17 +99,36 @@ describe('narrative graph', () => {
       expect(graph.people.Brother.unexplored).toEqual(['his time in Alaska', 'why he left tech', 'his marriage'])
     })
 
-    it('deduplicates places', () => {
+    it('deduplicates places and merges metadata', () => {
       let graph = emptyGraph()
       graph = mergeExtraction(graph, {
-        places: ['Portland', 'Seattle', 'Portland'],
+        places: [
+          { name: 'Portland', city: 'Portland', state: 'Oregon' },
+          { name: 'Seattle' },
+          { name: 'Portland' },
+        ],
       })
-      expect(graph.places).toEqual(['Portland', 'Seattle'])
+      expect(Object.keys(graph.places)).toEqual(['Portland', 'Seattle'])
+      expect(graph.places['Portland'].city).toBe('Portland')
+      expect(graph.places['Portland'].state).toBe('Oregon')
 
       graph = mergeExtraction(graph, {
-        places: ['Seattle', 'Vancouver'],
+        places: [{ name: 'Seattle', city: 'Seattle', state: 'Washington' }, { name: 'Vancouver' }],
       })
-      expect(graph.places).toEqual(['Portland', 'Seattle', 'Vancouver'])
+      expect(Object.keys(graph.places)).toEqual(['Portland', 'Seattle', 'Vancouver'])
+      expect(graph.places['Seattle'].city).toBe('Seattle')
+    })
+
+    it('does not overwrite existing place metadata', () => {
+      let graph = emptyGraph()
+      graph = mergeExtraction(graph, {
+        places: [{ name: 'Dallas', city: 'Dallas', state: 'Texas' }],
+      })
+      graph = mergeExtraction(graph, {
+        places: [{ name: 'Dallas', city: 'Wrong City', state: 'Wrong State' }],
+      })
+      expect(graph.places['Dallas'].city).toBe('Dallas')
+      expect(graph.places['Dallas'].state).toBe('Texas')
     })
 
     it('tracks eras with richness levels', () => {
@@ -262,10 +283,24 @@ describe('narrative graph', () => {
       let graph = emptyGraph()
       graph = mergeExtraction(graph, {
         interests: ['gardening', 'cooking', 'gardening'],
-        events: ['family reunion', 'trip to Europe'],
+        events: [{ name: 'family reunion' }, { name: 'trip to Europe' }],
       })
       expect(graph.interests).toEqual(['gardening', 'cooking'])
-      expect(graph.events).toEqual(['family reunion', 'trip to Europe'])
+      expect(graph.events.map(e => e.name)).toEqual(['family reunion', 'trip to Europe'])
+    })
+
+    it('merges event date without overwriting existing date', () => {
+      let graph = emptyGraph()
+      graph = mergeExtraction(graph, {
+        events: [{ name: 'Alaska cruise', date: { year: 2019, era: 'parenthood' } }],
+      })
+      expect(graph.events[0].date?.year).toBe(2019)
+      // Second extraction without date should not overwrite
+      graph = mergeExtraction(graph, {
+        events: [{ name: 'Alaska cruise' }],
+      })
+      expect(graph.events).toHaveLength(1)
+      expect(graph.events[0].date?.year).toBe(2019)
     })
 
     it('handles full realistic extraction', () => {
@@ -275,7 +310,7 @@ describe('narrative graph', () => {
           { name: 'Husband', relationship: 'spouse', sentiment: 'warm', new_facts: ['retired last year'] },
           { name: 'Son', relationship: 'child', new_threads: ['his marriage struggles'] },
         ],
-        places: ['Utah', 'California'],
+        places: [{ name: 'Utah', state: 'Utah', country: 'US' }, { name: 'California', state: 'California', country: 'US' }],
         era: 'marriage',
         themes: ['family legacy', 'loss'],
         emotional_weight: 'heavy',
@@ -294,7 +329,7 @@ describe('narrative graph', () => {
       expect(graph.total_entries).toBe(1)
       expect(graph.people.Husband.mentions).toBe(1)
       expect(graph.people.Husband.facts).toContain('retired last year')
-      expect(graph.places).toContain('Utah')
+      expect(graph.places['Utah']).toBeDefined()
       expect(graph.eras.marriage.entries).toBe(1)
       expect(graph.themes).toContain('family legacy')
       expect(graph.last_entry_weight).toBe('heavy')
@@ -309,7 +344,7 @@ describe('narrative graph', () => {
     it('formats graph as readable text', () => {
       const graph = emptyGraph('John')
       graph.people.Mom = { mentions: 3, facts: ['nurse', 'loves reading'], unexplored: [] }
-      graph.places = ['Boston', 'New York']
+      graph.places = { 'Boston': { name: 'Boston', city: 'Boston', state: 'Massachusetts' }, 'New York': { name: 'New York' } }
       graph.themes = ['resilience']
 
       const briefing = buildGraphBriefing(graph)
@@ -318,6 +353,66 @@ describe('narrative graph', () => {
       expect(briefing).toContain('nurse')
       expect(briefing).toContain('Boston')
       expect(briefing).toContain('resilience')
+    })
+  })
+
+  describe('normalizeGraph', () => {
+    it('converts string places array to Record', () => {
+      const raw = { ...emptyGraph(), places: ['Portland', 'Seattle'] }
+      const normalized = normalizeGraph(raw)
+      expect(normalized.places).toEqual({
+        Portland: { name: 'Portland' },
+        Seattle: { name: 'Seattle' },
+      })
+    })
+
+    it('preserves already-normalized places Record unchanged', () => {
+      const graph = emptyGraph()
+      graph.places = { Dallas: { name: 'Dallas', city: 'Dallas', state: 'Texas' } }
+      const normalized = normalizeGraph(graph)
+      expect(normalized.places['Dallas'].city).toBe('Dallas')
+    })
+
+    it('converts string events to EventNode array', () => {
+      const raw = { ...emptyGraph(), events: ['wedding', 'trip to Europe'] as any }
+      const normalized = normalizeGraph(raw)
+      expect(normalized.events).toEqual([{ name: 'wedding' }, { name: 'trip to Europe' }])
+    })
+
+    it('migrates legacy EventNode year/era to structured date', () => {
+      const raw = {
+        ...emptyGraph(),
+        events: [{ name: 'Alaska cruise', year: '2019', era: 'parenthood', place: 'Alaska' }] as any,
+      }
+      const normalized = normalizeGraph(raw)
+      expect(normalized.events[0]).toEqual({
+        name: 'Alaska cruise',
+        date: { year: 2019, era: 'parenthood' },
+        place: 'Alaska',
+      })
+    })
+
+    it('preserves already-normalized EventNode unchanged', () => {
+      const graph = emptyGraph()
+      graph.events = [{ name: 'graduation', date: { year: 1995 } }]
+      const normalized = normalizeGraph(graph)
+      expect(normalized.events[0].date?.year).toBe(1995)
+    })
+
+    it('initializes missing fields on sparse graph', () => {
+      const normalized = normalizeGraph({ people: {}, total_entries: 5 })
+      expect(normalized.places).toEqual({})
+      expect(normalized.events).toEqual([])
+      expect(normalized.open_threads).toEqual([])
+      expect(normalized.faith).toEqual({})
+    })
+
+    it('is idempotent — running twice produces same result', () => {
+      const raw = { ...emptyGraph(), places: ['Portland'], events: ['wedding'] as any }
+      const once = normalizeGraph(raw)
+      const twice = normalizeGraph(once)
+      expect(twice.places).toEqual(once.places)
+      expect(twice.events).toEqual(once.events)
     })
   })
 
@@ -348,31 +443,28 @@ describe('narrative graph', () => {
     it('person with relationship set generates no gap', () => {
       const graph = emptyGraph()
       graph.people.Dad = { mentions: 3, facts: [], unexplored: [], relationship: 'father' }
-      expect(findCompletenessGaps(graph)).toHaveLength(0)
+      expect(findCompletenessGaps(graph).filter(g => g.entity_type === 'person')).toHaveLength(0)
     })
 
-    it('string events always generate year and place gaps', () => {
+    it('events without date generate date gap', () => {
       const graph = emptyGraph()
-      graph.events = ['wedding', 'trip to Europe']
+      graph.events = [{ name: 'wedding' }, { name: 'trip to Europe' }]
 
       const gaps = findCompletenessGaps(graph)
-      expect(gaps.filter(g => g.entity_type === 'event' && g.field === 'year')).toHaveLength(2)
-      expect(gaps.filter(g => g.entity_type === 'event' && g.field === 'place')).toHaveLength(2)
-      expect(gaps).toHaveLength(4)
+      expect(gaps.filter(g => g.entity_type === 'event' && g.field === 'date')).toHaveLength(2)
     })
 
-    it('EventNode with both year and place generates no gaps', () => {
+    it('EventNode with date generates no date gap', () => {
       const graph = emptyGraph()
-      // Cast as any since the type is string[] but EventNode is handled at runtime
-      graph.events = [{ name: 'Alaska cruise', year: '2019', place: 'Alaska' } as unknown as string]
+      graph.events = [{ name: 'Alaska cruise', date: { year: 2019 }, place: 'Alaska' }]
 
       const gaps = findCompletenessGaps(graph)
-      expect(gaps.filter(g => g.entity_type === 'event')).toHaveLength(0)
+      expect(gaps.filter(g => g.entity_type === 'event' && g.field === 'date')).toHaveLength(0)
     })
 
-    it('EventNode with year but no place generates one place gap', () => {
+    it('EventNode with date but no place generates place gap', () => {
       const graph = emptyGraph()
-      graph.events = [{ name: 'graduation', year: '1995' } as unknown as string]
+      graph.events = [{ name: 'graduation', date: { year: 1995 } }]
 
       const gaps = findCompletenessGaps(graph)
       const eventGaps = gaps.filter(g => g.entity_type === 'event')
@@ -380,26 +472,112 @@ describe('narrative graph', () => {
       expect(eventGaps[0].field).toBe('place')
     })
 
-    it('EventNode with era but no place generates one place gap', () => {
+    it('places without city generate city gap', () => {
       const graph = emptyGraph()
-      graph.events = [{ name: 'mission', era: 'youth' } as unknown as string]
-
+      graph.places = {
+        'the lake house': { name: 'the lake house' },
+        'Dallas': { name: 'Dallas', city: 'Dallas' },
+      }
       const gaps = findCompletenessGaps(graph)
-      const eventGaps = gaps.filter(g => g.entity_type === 'event')
-      expect(eventGaps).toHaveLength(1)
-      expect(eventGaps[0].field).toBe('place')
+      const placeGaps = gaps.filter(g => g.entity_type === 'place')
+      expect(placeGaps).toHaveLength(1)
+      expect(placeGaps[0].entity_key).toBe('the lake house')
     })
 
     it('mixed graph returns only gapped entities', () => {
       const graph = emptyGraph()
       graph.people.Mom = { mentions: 2, facts: [], unexplored: [], relationship: 'mother' }
       graph.people.Stranger = { mentions: 1, facts: [], unexplored: [] }
-      graph.events = ['road trip']
+      graph.events = [{ name: 'road trip' }]
 
       const gaps = findCompletenessGaps(graph)
       expect(gaps.find(g => g.entity_key === 'Mom')).toBeUndefined()
       expect(gaps.filter(g => g.entity_key === 'Stranger')).toHaveLength(1)
-      expect(gaps.filter(g => g.entity_type === 'event')).toHaveLength(2)
+      expect(gaps.filter(g => g.entity_type === 'event')).toHaveLength(2) // date + place
+    })
+  })
+
+  describe('findEntryGaps', () => {
+    it('returns only an era gap when extraction is otherwise empty', () => {
+      const graph = emptyGraph()
+      const gaps = findEntryGaps({}, graph)
+      expect(gaps).toHaveLength(1)
+      expect(gaps[0].entity_type).toBe('era')
+    })
+
+    it('era gap when extraction.era is null', () => {
+      const graph = emptyGraph()
+      const gaps = findEntryGaps({ era: undefined }, graph)
+      expect(gaps.find(g => g.entity_type === 'era')).toBeDefined()
+    })
+
+    it('no era gap when extraction.era is set', () => {
+      const graph = emptyGraph()
+      const gaps = findEntryGaps({ era: 'childhood' }, graph)
+      expect(gaps.find(g => g.entity_type === 'era')).toBeUndefined()
+    })
+
+    it('person gap when not in graph', () => {
+      const graph = emptyGraph()
+      const gaps = findEntryGaps({ people: [{ name: 'Brandon' }], era: 'childhood' }, graph)
+      expect(gaps.find(g => g.entity_key === 'Brandon' && g.field === 'relationship')).toBeDefined()
+    })
+
+    it('no person gap when relationship already known', () => {
+      const graph = emptyGraph()
+      graph.people['Brandon'] = { mentions: 1, facts: [], unexplored: [], relationship: 'brother' }
+      const gaps = findEntryGaps({ people: [{ name: 'Brandon' }], era: 'childhood' }, graph)
+      expect(gaps.find(g => g.entity_key === 'Brandon')).toBeUndefined()
+    })
+
+    it('event date gap when event not in graph', () => {
+      const graph = emptyGraph()
+      const gaps = findEntryGaps({ events: [{ name: 'family reunion' }], era: 'childhood' }, graph)
+      expect(gaps.find(g => g.entity_key === 'family reunion' && g.field === 'date')).toBeDefined()
+    })
+
+    it('no event gap when event already has date in graph', () => {
+      const graph = emptyGraph()
+      graph.events = [{ name: 'family reunion', date: { year: 1998 } }]
+      const gaps = findEntryGaps({ events: [{ name: 'family reunion' }], era: 'childhood' }, graph)
+      expect(gaps.find(g => g.entity_key === 'family reunion')).toBeUndefined()
+    })
+
+    it('place gap when place has no city in graph', () => {
+      const graph = emptyGraph()
+      graph.places['Pottsboro'] = { name: 'Pottsboro' }  // no city
+      const gaps = findEntryGaps({ places: [{ name: 'Pottsboro' }], era: 'childhood' }, graph)
+      expect(gaps.find(g => g.entity_key === 'Pottsboro' && g.field === 'city')).toBeDefined()
+    })
+
+    it('no place gap when place has city in graph', () => {
+      const graph = emptyGraph()
+      graph.places['Dallas'] = { name: 'Dallas', city: 'Dallas', state: 'Texas' }
+      const gaps = findEntryGaps({ places: [{ name: 'Dallas' }], era: 'childhood' }, graph)
+      expect(gaps.find(g => g.entity_key === 'Dallas')).toBeUndefined()
+    })
+
+    it('mixed extraction returns gaps only for unknowns', () => {
+      const graph = emptyGraph()
+      graph.people['Mom'] = { mentions: 2, facts: [], unexplored: [], relationship: 'mother' }
+      graph.people['Brandon'] = { mentions: 1, facts: [], unexplored: [] }  // no relationship
+      graph.events = [{ name: 'Alaska cruise', date: { year: 2022 } }]
+      graph.places['Dallas'] = { name: 'Dallas', city: 'Dallas' }
+
+      const gaps = findEntryGaps({
+        people: [{ name: 'Mom' }, { name: 'Brandon' }],
+        events: [{ name: 'Alaska cruise' }, { name: 'new event' }],
+        places: [{ name: 'Dallas' }, { name: 'the lake house' }],
+        era: 'parenthood',
+      }, graph)
+
+      expect(gaps.find(g => g.entity_key === 'Mom')).toBeUndefined()
+      expect(gaps.find(g => g.entity_key === 'Brandon')).toBeDefined()
+      expect(gaps.find(g => g.entity_key === 'Alaska cruise')).toBeUndefined()
+      expect(gaps.find(g => g.entity_key === 'new event')).toBeDefined()
+      expect(gaps.find(g => g.entity_key === 'Dallas')).toBeUndefined()
+      expect(gaps.find(g => g.entity_key === 'the lake house')).toBeDefined()
+      expect(gaps.find(g => g.entity_type === 'era')).toBeUndefined()
     })
   })
 
@@ -419,6 +597,52 @@ describe('narrative graph', () => {
 
       applyGraphPatch(graph, 'person', 'Sister', 'relationship', 'family')
       expect(JSON.stringify(graph)).toBe(original)
+    })
+
+    it('patches event date with year from answer', () => {
+      let graph = emptyGraph()
+      graph.events = [{ name: 'graduation' }]
+
+      graph = applyGraphPatch(graph, 'event', 'graduation', 'date', 'It was in 1995')
+      expect(graph.events[0].date?.year).toBe(1995)
+    })
+
+    it('patches event date with era when no year in answer', () => {
+      let graph = emptyGraph()
+      graph.events = [{ name: 'road trip' }]
+
+      graph = applyGraphPatch(graph, 'event', 'road trip', 'date', 'childhood')
+      expect(graph.events[0].date?.era).toBe('childhood')
+    })
+
+    it('patches event place', () => {
+      let graph = emptyGraph()
+      graph.events = [{ name: 'summer camp' }]
+
+      graph = applyGraphPatch(graph, 'event', 'summer camp', 'place', 'Bear Lake')
+      expect(graph.events[0].place).toBe('Bear Lake')
+    })
+
+    it('patches place city', () => {
+      let graph = emptyGraph()
+      graph.places['the lake house'] = { name: 'the lake house' }
+
+      graph = applyGraphPatch(graph, 'place', 'the lake house', 'city', 'Pottsboro')
+      expect(graph.places['the lake house'].city).toBe('Pottsboro')
+    })
+
+    it('creates place node if not exists when patching', () => {
+      let graph = emptyGraph()
+
+      graph = applyGraphPatch(graph, 'place', 'Grandma house', 'city', 'Gainesville')
+      expect(graph.places['Grandma house'].city).toBe('Gainesville')
+    })
+
+    it('patches era into graph.eras', () => {
+      let graph = emptyGraph()
+
+      graph = applyGraphPatch(graph, 'era', 'entry', 'era', 'childhood')
+      expect(graph.eras['childhood']).toBeDefined()
     })
   })
 })

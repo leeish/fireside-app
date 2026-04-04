@@ -1,27 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { NarrativeGraph, PersonNode } from '@/lib/graph'
 
-type EraRichness = 'none' | 'low' | 'medium' | 'high'
-
-const RICHNESS_WIDTH: Record<EraRichness, string> = {
-  none: '0%',
-  low: '25%',
-  medium: '60%',
-  high: '100%',
-}
-
-const RICHNESS_LABEL: Record<EraRichness, string> = {
-  none: 'Not yet explored',
-  low: 'Shallow',
-  medium: 'Developing',
-  high: 'Well documented',
-}
-
-const RICHNESS_ORDER: EraRichness[] = ['none', 'low', 'medium', 'high']
-
-function EraCard({ name, richness, entries }: { name: string; richness: EraRichness; entries: number }) {
+function EraCard({ name, entries, maxEntries }: { name: string; entries: number; maxEntries: number }) {
+  const pct = maxEntries > 0 ? Math.round((entries / maxEntries) * 100) : 0
   return (
     <div className="bg-card border border-border/50 rounded-2xl px-5 py-4 space-y-2">
       <div className="flex items-center justify-between">
@@ -31,10 +15,9 @@ function EraCard({ name, richness, entries }: { name: string; richness: EraRichn
       <div className="h-1.5 rounded-full bg-border/40 overflow-hidden">
         <div
           className="h-full rounded-full bg-primary/60 transition-all duration-500"
-          style={{ width: RICHNESS_WIDTH[richness] }}
+          style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="text-xs text-muted-fg">{RICHNESS_LABEL[richness]}</p>
     </div>
   )
 }
@@ -47,6 +30,7 @@ type MergeState =
 function PersonCard({
   name,
   node,
+  maxMentions,
   mergeState,
   onMergeStart,
   onMergeSelect,
@@ -54,12 +38,14 @@ function PersonCard({
 }: {
   name: string
   node: PersonNode
+  maxMentions: number
   mergeState: MergeState
   onMergeStart: (name: string) => void
   onMergeSelect: (name: string) => void
   onMergeCancel: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const pct = maxMentions > 0 ? Math.round((node.mentions / maxMentions) * 100) : 0
 
   const isPicking = mergeState.step === 'picking'
   const isSource = isPicking && mergeState.source === name
@@ -94,6 +80,13 @@ function PersonCard({
             </button>
           )}
         </div>
+      </div>
+
+      <div className="h-1.5 rounded-full bg-border/40 overflow-hidden">
+        <div
+          className="h-full rounded-full bg-primary/40 transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
       </div>
 
       {expanded && !isPicking && (
@@ -215,16 +208,20 @@ function MergeConfirmDialog({
 }
 
 export default function StoryMapClient({ graph: initialGraph }: { graph: NarrativeGraph }) {
+  const router = useRouter()
   const [graph, setGraph] = useState(initialGraph)
   const [mergeState, setMergeState] = useState<MergeState>({ step: 'idle' })
   const [mergeLoading, setMergeLoading] = useState(false)
   const [mergeError, setMergeError] = useState('')
+  const [revisitingThread, setRevisitingThread] = useState<string | null>(null)
+  const [revisitError, setRevisitError] = useState('')
 
-  const sortedEras = Object.entries(graph.eras).sort((a, b) => {
-    return RICHNESS_ORDER.indexOf(a[1].richness as EraRichness) - RICHNESS_ORDER.indexOf(b[1].richness as EraRichness)
-  })
+  const maxEraEntries = Math.max(1, ...Object.values(graph.eras).map(e => e.entries))
+  const maxMentions = Math.max(1, ...Object.values(graph.people).map(p => p.mentions))
 
+  const sortedEras = Object.entries(graph.eras).sort((a, b) => a[1].entries - b[1].entries)
   const sortedPeople = Object.entries(graph.people).sort((a, b) => b[1].mentions - a[1].mentions)
+  const placeNames = Object.keys(graph.places)
 
   function handleMergeStart(name: string) {
     setMergeState({ step: 'picking', source: name })
@@ -255,7 +252,6 @@ export default function StoryMapClient({ graph: initialGraph }: { graph: Narrati
       setMergeLoading(false)
       return
     }
-    // Optimistically update local graph
     const updatedPeople = { ...graph.people }
     const canonNode = { ...updatedPeople[canonical] }
     const dupNode = updatedPeople[duplicate]
@@ -275,6 +271,23 @@ export default function StoryMapClient({ graph: initialGraph }: { graph: Narrati
     setMergeError('')
   }
 
+  async function handleRevisitThread(thread: string) {
+    setRevisitingThread(thread)
+    setRevisitError('')
+    const res = await fetch('/api/narrative/revisit-thread', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ thread }),
+    })
+    if (!res.ok) {
+      setRevisitError('Something went wrong. Please try again.')
+      setRevisitingThread(null)
+      return
+    }
+    const data = await res.json()
+    router.push(`/dashboard/conversation/${data.conversationId}`)
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 space-y-12">
       <div>
@@ -291,8 +304,8 @@ export default function StoryMapClient({ graph: initialGraph }: { graph: Narrati
               <EraCard
                 key={era}
                 name={era}
-                richness={node.richness as EraRichness}
                 entries={node.entries}
+                maxEntries={maxEraEntries}
               />
             ))}
           </div>
@@ -315,6 +328,7 @@ export default function StoryMapClient({ graph: initialGraph }: { graph: Narrati
                 key={name}
                 name={name}
                 node={node}
+                maxMentions={maxMentions}
                 mergeState={mergeState}
                 onMergeStart={handleMergeStart}
                 onMergeSelect={handleMergeSelect}
@@ -326,11 +340,11 @@ export default function StoryMapClient({ graph: initialGraph }: { graph: Narrati
       )}
 
       {/* Places */}
-      {graph.places.length > 0 && (
+      {placeNames.length > 0 && (
         <section className="space-y-3">
           <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Places</p>
           <div className="flex flex-wrap gap-2">
-            {graph.places.map(place => (
+            {placeNames.map(place => (
               <span
                 key={place}
                 className="px-3 h-7 flex items-center rounded-full border border-border/50 text-xs text-foreground/80 bg-card"
@@ -363,11 +377,19 @@ export default function StoryMapClient({ graph: initialGraph }: { graph: Narrati
       {graph.open_threads.length > 0 && (
         <section className="space-y-3">
           <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Threads to revisit</p>
+          {revisitError && <p className="text-xs text-red-600">{revisitError}</p>}
           <div className="bg-card border border-border/50 rounded-2xl divide-y divide-border/30">
             {graph.open_threads.map((thread, i) => (
-              <p key={i} className="px-5 py-3 text-sm text-foreground/80">
-                {thread}
-              </p>
+              <div key={i} className="px-5 py-3 flex items-center justify-between gap-4">
+                <p className="text-sm text-foreground/80 flex-1">{thread}</p>
+                <button
+                  onClick={() => handleRevisitThread(thread)}
+                  disabled={revisitingThread !== null}
+                  className="text-xs text-primary hover:text-primary/80 font-medium disabled:opacity-50 transition-colors duration-200 shrink-0"
+                >
+                  {revisitingThread === thread ? 'Starting...' : 'Revisit this now'}
+                </button>
+              </div>
             ))}
           </div>
         </section>
