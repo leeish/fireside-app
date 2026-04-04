@@ -186,13 +186,19 @@ export function mergeExtraction(graph: NarrativeGraph, extraction: ExtractionRes
 
   // People
   for (const person of extraction.people ?? []) {
-    // Skip system placeholders
-    if (SYSTEM_PLACEHOLDERS.includes(person.name)) continue
+    // Normalize to title case to avoid "mom"/"Mom" duplicate nodes
+    const normalizedName = person.name
+      .split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ')
 
-    if (!g.people[person.name]) {
-      g.people[person.name] = { mentions: 0, facts: [], unexplored: [] }
+    // Skip system placeholders
+    if (SYSTEM_PLACEHOLDERS.includes(normalizedName)) continue
+
+    if (!g.people[normalizedName]) {
+      g.people[normalizedName] = { mentions: 0, facts: [], unexplored: [] }
     }
-    const node = g.people[person.name]
+    const node = g.people[normalizedName]
     node.mentions += 1
     if (person.relationship) node.relationship = person.relationship
     if (person.sentiment) node.sentiment = person.sentiment
@@ -437,6 +443,14 @@ export function findCompletenessGaps(graph: NarrativeGraph): CompletenessGap[] {
   return gaps
 }
 
+// Names that are themselves relationship descriptors — no need to ask "who is X to you?"
+const RELATIONSHIP_TERMS = new Set([
+  'mom', 'mother', 'dad', 'father', 'brother', 'sister',
+  'wife', 'husband', 'grandma', 'grandmother', 'grandpa', 'grandfather',
+  'aunt', 'uncle', 'son', 'daughter', 'nephew', 'niece', 'cousin',
+  'stepmom', 'stepdad', 'stepbrother', 'stepsister', 'stepson', 'stepdaughter',
+])
+
 // Finds entry-specific gaps: things mentioned in this entry that the master graph doesn't fully know.
 // More targeted than findCompletenessGaps — scoped to what was mentioned in one conversation.
 export function findEntryGaps(
@@ -447,6 +461,8 @@ export function findEntryGaps(
 
   // People mentioned in this entry without known relationship in master graph
   for (const person of extraction.people ?? []) {
+    // Skip if the name itself encodes the relationship (mom, dad, brother, etc.)
+    if (RELATIONSHIP_TERMS.has(person.name.toLowerCase())) continue
     if (!graph.people[person.name]?.relationship) {
       gaps.push({
         entity_type: 'person',

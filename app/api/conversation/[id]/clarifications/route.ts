@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { applyGraphPatch, normalizeGraph, emptyGraph, findEntryGaps, type NarrativeGraph, type ExtractionResult } from '@/lib/graph'
 import { decrypt, encrypt } from '@/lib/crypto'
-import { claudeComplete, getAIClient, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
+import { getAIClient } from '@/lib/ai'
 import { ENTRY_EXTRACTION_SYSTEM } from '@/lib/extraction'
 import { ClarificationAnswerSchema } from '@/lib/schemas'
 
@@ -156,44 +156,14 @@ export async function POST(
   const newGaps = gaps.filter(g => !existingSet.has(`${g.entity_type}:${g.entity_key}:${g.field}`))
   if (newGaps.length === 0) return NextResponse.json({ clarifications: [] })
 
-  // Generate natural-language questions via Claude
-  const summaryLine = entryContext.one_line_summary ? `Entry: ${entryContext.one_line_summary}\n\n` : ''
-  const gapList = newGaps.map(g => `${g.entity_type} "${g.entity_key}" — missing: ${g.field}`).join('\n')
-
-  const userApiKey = await resolveApiKey(user.id, service)
-  let questions: string[] = newGaps.map(g => g.question)
-
-  try {
-    const { text } = await withUserKeyFallback(user.id, service, userApiKey, (key) =>
-      claudeComplete({
-        system: `You are generating clarifying questions for a personal journal entry. Given a list of data gaps, write natural, conversational questions that feel like a warm follow-up from a biographer.
-
-Rules:
-- Group related unknowns into one question when possible (e.g. multiple unknown people → one question)
-- Questions must feel warm and specific, not like database field prompts
-- Maximum 4 questions total
-- Return a JSON array of strings: ["question 1", "question 2", ...]
-- No preamble. Only the JSON array.`,
-        user: `${summaryLine}Gaps to address:\n${gapList}`,
-        maxTokens: 500,
-        temperature: 0.4,
-        apiKey: key,
-      })
-    )
-    const parsed = JSON.parse(text)
-    if (Array.isArray(parsed) && parsed.length > 0) questions = parsed
-  } catch {
-    // Fall back to template questions
-  }
-
-  // Insert new clarifications, one per gap (paired with generated questions)
-  const toInsert = newGaps.slice(0, questions.length).map((gap, i) => ({
+  // Insert new clarifications using template questions (1:1 indexed with gaps)
+  const toInsert = newGaps.map(gap => ({
     user_id: user.id,
     conversation_id: conversationId,
     entity_type: gap.entity_type,
     entity_key: gap.entity_key,
     field: gap.field,
-    question: questions[i] ?? gap.question,
+    question: gap.question,
     status: 'pending',
   }))
 

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import CleanupTab from './CleanupTab'
 import StoryTab from './StoryTab'
 import ClarifyTab from './ClarifyTab'
+import ExtractionTab from './ExtractionTab'
+import type { ExtractionResult } from '@/lib/graph'
 
 type Turn = { id: string; role: string; content: string; created_at: string }
 
@@ -16,13 +18,14 @@ type Entry = {
   story_intensity: string | null
 } | null
 
-type Tab = 'transcript' | 'clarify' | 'cleanup' | 'story'
+type Tab = 'transcript' | 'clarify' | 'cleanup' | 'story' | 'extraction'
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'transcript', label: 'Transcript' },
   { value: 'clarify', label: 'Clarify' },
   { value: 'cleanup', label: 'Cleaned Up' },
   { value: 'story', label: 'Story Entry' },
+  { value: 'extraction', label: 'Extracted' },
 ]
 
 export default function SettledView({
@@ -35,6 +38,7 @@ export default function SettledView({
   titleStyle = 'simple',
   userPronouns = null,
   previousStoryVersion = null,
+  entryContext = null,
 }: {
   conversationId: string
   channel: string
@@ -45,6 +49,7 @@ export default function SettledView({
   titleStyle?: string
   userPronouns?: string | null
   previousStoryVersion?: { content: string; intensity: string | null; created_at: string } | null
+  entryContext?: ExtractionResult | null
 }) {
   const router = useRouter()
 
@@ -271,6 +276,11 @@ export default function SettledView({
           userPronouns={userPronouns}
           previousStoryVersion={previousStoryVersion}
         />
+      </div>
+
+      {/* Extracted */}
+      <div className={tab !== 'extraction' ? 'hidden' : ''}>
+        <ExtractionTab extraction={entryContext} />
       </div>
     </div>
   )

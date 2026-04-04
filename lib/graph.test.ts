@@ -530,6 +530,24 @@ describe('narrative graph', () => {
       expect(gaps.find(g => g.entity_key === 'Brandon')).toBeUndefined()
     })
 
+    it('no relationship gap for person whose name is a relationship term (lowercase)', () => {
+      const graph = emptyGraph()
+      const gaps = findEntryGaps({ people: [{ name: 'mom' }], era: 'childhood' }, graph)
+      expect(gaps.find(g => g.entity_key === 'mom' && g.field === 'relationship')).toBeUndefined()
+    })
+
+    it('no relationship gap for person whose name is a relationship term (mixed case)', () => {
+      const graph = emptyGraph()
+      const gaps = findEntryGaps({ people: [{ name: 'Dad' }], era: 'childhood' }, graph)
+      expect(gaps.find(g => g.field === 'relationship')).toBeUndefined()
+    })
+
+    it('still produces a relationship gap for a non-relationship name', () => {
+      const graph = emptyGraph()
+      const gaps = findEntryGaps({ people: [{ name: 'Sarah' }], era: 'childhood' }, graph)
+      expect(gaps.find(g => g.entity_key === 'Sarah' && g.field === 'relationship')).toBeDefined()
+    })
+
     it('event date gap when event not in graph', () => {
       const graph = emptyGraph()
       const gaps = findEntryGaps({ events: [{ name: 'family reunion' }], era: 'childhood' }, graph)

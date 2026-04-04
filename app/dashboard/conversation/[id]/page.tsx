@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
+import type { ExtractionResult } from '@/lib/graph'
 import ConversationClient from './ConversationClient'
 import SettledView from './SettledView'
 
@@ -54,15 +55,24 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
 
   // Fetch entry only when settled (needed for cleanup/story tabs)
   let entry = null
+  let entryContext: ExtractionResult | null = null
   let clarificationsCount = 0
   let previousStoryVersion: { content: string; intensity: string | null; created_at: string } | null = null
   if (isSettled) {
     const { data } = await service
       .from('entries')
-      .select('id, content, cleaned_content, story_content, story_intensity')
+      .select('id, content, cleaned_content, story_content, story_intensity, entry_context')
       .eq('conversation_id', id)
       .maybeSingle()
     entry = data
+
+    if (data?.entry_context) {
+      try {
+        entryContext = JSON.parse(decrypt(data.entry_context, process.env.MEMORY_ENCRYPTION_KEY!))
+      } catch {
+        entryContext = null
+      }
+    }
 
     if (entry?.id) {
       const { data: version } = await service
@@ -105,6 +115,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
           titleStyle={userProfile?.title_style ?? 'simple'}
           userPronouns={userProfile?.pronouns ?? null}
           previousStoryVersion={previousStoryVersion}
+          entryContext={entryContext}
         />
       ) : (
         <ConversationClient
