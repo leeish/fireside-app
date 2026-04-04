@@ -230,8 +230,8 @@ Eras covered: ${JSON.stringify(graph.eras)}
 People: ${JSON.stringify(Object.keys(graph.people ?? {}))}
 Themes: ${(graph.themes ?? []).join(', ')}
 Interests: ${(graph.interests ?? []).join(', ')}
-Events mentioned: ${(graph.events ?? []).join(', ')}
-Places mentioned: ${(graph.places ?? []).join(', ')}
+Events mentioned: ${(graph.events ?? []).map(e => e.name).join(', ')}
+Places mentioned: ${Object.keys(graph.places ?? {}).join(', ')}
 Open threads (topics worth returning to): ${(graph.open_threads ?? []).join('; ')}
 Deflections: ${(graph.deflections ?? []).join('; ')}
 Last entry weight: ${graph.last_entry_weight ?? 'unknown'}

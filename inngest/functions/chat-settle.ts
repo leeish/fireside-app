@@ -3,7 +3,7 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt, encrypt } from '@/lib/crypto'
 import { getAIClient, logTokenUsage } from '@/lib/ai'
 import { generateEmbedding } from '@/lib/embeddings'
-import { mergeExtraction, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
+import { mergeExtraction, normalizeGraph, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 
 type ChatSettleEvent = {
   data: {
@@ -16,7 +16,7 @@ const EXTRACTION_SYSTEM = `You are analyzing a personal journal conversation. Ex
 
 Return a JSON object with exactly these fields:
 - people: array of { name, relationship, sentiment ("warm"|"complicated"|"neutral"|"positive"|"negative"), new_facts (string[]), new_threads (string[]) }
-- places: string[] — specific places mentioned
+- places: array of { name, city?, state?, country?, address? } — specific places mentioned; only populate location fields when explicitly stated or strongly inferable
 - era: one of "childhood" | "youth" | "mission" | "marriage" | "parenthood" | "career" | "other" | null
 - emotional_weight: "heavy" | "medium" | "light"
 - themes: string[] — e.g. ["faith", "family", "childhood", "belonging"]
@@ -94,7 +94,7 @@ export const chatSettle = inngest.createFunction(
       .single()
 
     const currentGraph: NarrativeGraph = narrativeRow?.graph
-      ? JSON.parse(decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!))
+      ? normalizeGraph(JSON.parse(decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!)))
       : emptyGraph()
     const updatedGraph = mergeExtraction(currentGraph, extraction)
     const newVersion = (narrativeRow?.graph_version ?? 0) + 1

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { encrypt, decrypt } from '@/lib/crypto'
-import { mergePersonNodes } from '@/lib/graph'
+import { mergePersonNodes, normalizeGraph } from '@/lib/graph'
 import type { NarrativeGraph } from '@/lib/graph'
 
 export async function POST(request: Request) {
@@ -26,8 +26,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Graph not found' }, { status: 404 })
   }
 
-  const currentGraph: NarrativeGraph = JSON.parse(
-    decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!)
+  const currentGraph: NarrativeGraph = normalizeGraph(
+    JSON.parse(decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!))
   )
 
   if (!currentGraph.people[canonical] || !currentGraph.people[duplicate]) {

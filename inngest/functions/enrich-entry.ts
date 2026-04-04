@@ -3,29 +3,10 @@ import { createServiceClient } from '@/lib/supabase/server'
 import { decrypt, encrypt } from '@/lib/crypto'
 import { getAIClient, logTokenUsage } from '@/lib/ai'
 import { generateEmbedding } from '@/lib/embeddings'
-import { mergeExtraction, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
+import { mergeExtraction, normalizeGraph, emptyGraph, findCompletenessGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
+import { ENTRY_EXTRACTION_SYSTEM } from '@/lib/extraction'
 
 type EnrichEntryEvent = { data: { turnId: string } }
-
-const EXTRACTION_SYSTEM = `You are analyzing a personal journal entry. Extract structured metadata from the user's response.
-
-Return a JSON object with exactly these fields:
-- people: array of { name, relationship, sentiment ("warm"|"complicated"|"neutral"|"positive"|"negative"), new_facts (string[]), new_threads (string[]) }
-  IMPORTANT: Only extract real people the user mentions. Exclude:
-  - The biographer or interviewer (don't extract "Biographer" or similar)
-  - Generic placeholders like "Person", "User", "Subject"
-  - The user themselves (they are the narrator, not a person in the story)
-  Focus on family members, friends, colleagues, and other real people in their accounts.
-- places: string[] — specific places mentioned
-- era: one of "childhood" | "youth" | "mission" | "marriage" | "parenthood" | "career" | "other" | null
-- emotional_weight: "heavy" | "medium" | "light"
-- themes: string[] — emotional/narrative themes, e.g. ["loss", "belonging", "identity", "faith", "grief", "resilience", "family tension"]
-- interests: string[] — hobbies, passions, and activities they enjoy or engage in, e.g. ["woodworking", "cooking", "hiking", "reading", "music"]
-- events: string[] — specific named experiences worth exploring further, e.g. ["2025 Florida vacation", "cruise to Alaska", "dad's retirement party", "the summer we renovated the house"]
-- deflections: string[] — things started then redirected, e.g. ["started to discuss father leaving but changed subject"]
-- faith_signals: { tradition_signals: string[], milestones_mentioned: string[], spiritual_moments: string[] }
-- new_threads_opened: string[] — specific memories, events, or topics they mentioned briefly that are worth returning to, e.g. ["the summer they worked on a fishing boat", "a falling out with a close friend in college"]
-- one_line_summary: string — 1-2 sentence third-person summary of what this memory is about`
 
 export const enrichEntry = inngest.createFunction(
   { id: 'enrich-entry', retries: 3, triggers: [{ event: 'fireside/entry.enrich' }] },
@@ -69,7 +50,7 @@ export const enrichEntry = inngest.createFunction(
       store: false,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: EXTRACTION_SYSTEM },
+        { role: 'system', content: ENTRY_EXTRACTION_SYSTEM },
         { role: 'user', content: `Question asked: ${questionText}\n\nUser's response: ${responseText}` },
       ],
     })
@@ -95,7 +76,7 @@ export const enrichEntry = inngest.createFunction(
       .single()
 
     const currentGraph: NarrativeGraph = narrativeRow?.graph
-      ? JSON.parse(decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!))
+      ? normalizeGraph(JSON.parse(decrypt(narrativeRow.graph as string, process.env.MEMORY_ENCRYPTION_KEY!)))
       : emptyGraph()
     const updatedGraph = mergeExtraction(currentGraph, extraction)
     const newVersion = (narrativeRow?.graph_version ?? 0) + 1
@@ -162,6 +143,7 @@ export const enrichEntry = inngest.createFunction(
           origin: 'biographer',
           era: extraction.era ?? null,
           themes: extraction.themes ?? [],
+          entry_context: encrypt(JSON.stringify(extraction), process.env.MEMORY_ENCRYPTION_KEY!),
           settled_at: now,
         })
         .select('id')

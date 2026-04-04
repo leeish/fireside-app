@@ -9,6 +9,7 @@ function baseGraph(overrides: Partial<NarrativeGraph> = {}): NarrativeGraph {
   }
 }
 
+
 describe('mergePersonNodes', () => {
   it('sums mentions and combines facts and unexplored threads', () => {
     const graph = baseGraph({

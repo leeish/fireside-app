@@ -11,11 +11,25 @@ export interface PersonNode {
   unexplored: string[]
 }
 
+export interface EventDate {
+  era?: string
+  year?: number
+  month?: number
+  day?: number
+}
+
 export interface EventNode {
   name: string
-  year?: string
-  era?: string
-  place?: string
+  date?: EventDate
+  place?: string  // key into graph.places Record
+}
+
+export interface PlaceNode {
+  name: string
+  country?: string
+  state?: string
+  city?: string
+  address?: string
 }
 
 export interface EraNode {
@@ -38,12 +52,12 @@ export interface FaithNode {
 export interface NarrativeGraph {
   display_name?: string
   people: Record<string, PersonNode>
-  places: string[]
+  places: Record<string, PlaceNode>
   eras: Record<string, EraNode>
   themes: string[]
   deflections: string[]
   interests: string[]      // hobbies, passions, activities they mention enjoying
-  events: string[]         // specific named experiences worth exploring (trips, family events, milestones)
+  events: EventNode[]      // specific named experiences worth exploring (trips, family events, milestones)
   open_threads: string[]   // topics mentioned in passing worth returning to (accumulated from extractions)
   emotional_pattern?: string
   last_entry_weight?: string
@@ -61,13 +75,13 @@ export interface ExtractionResult {
     new_facts?: string[]
     new_threads?: string[]
   }>
-  places?: string[]
+  places?: Array<{ name: string; city?: string; state?: string; country?: string; address?: string }>
   era?: string
   emotional_weight?: string
   themes?: string[]
   deflections?: string[]
   interests?: string[]
-  events?: string[]
+  events?: Array<{ name: string; date?: { year?: number; month?: number; day?: number; era?: string } }>
   faith_signals?: {
     tradition_signals?: string[]
     milestones_mentioned?: string[]
@@ -102,6 +116,67 @@ function detectFaithTradition(signals: string[]): 'lds' | null {
   return null
 }
 
+// Normalizes a raw graph object (potentially old format) to the current NarrativeGraph shape.
+// Call this immediately after JSON.parse(decrypt(...)) on any stored graph.
+// Idempotent — safe to call on already-normalized graphs.
+export function normalizeGraph(raw: any): NarrativeGraph {
+  const g: any = { ...raw }
+
+  // Migrate places: string[] → Record<string, PlaceNode>
+  if (Array.isArray(g.places)) {
+    const placesRecord: Record<string, PlaceNode> = {}
+    for (const p of g.places) {
+      if (typeof p === 'string') {
+        placesRecord[p] = { name: p }
+      } else if (p && typeof p === 'object' && p.name) {
+        placesRecord[p.name] = p as PlaceNode
+      }
+    }
+    g.places = placesRecord
+  } else if (!g.places || typeof g.places !== 'object') {
+    g.places = {}
+  }
+
+  // Migrate events: (string | LegacyEventNode)[] → EventNode[]
+  if (!Array.isArray(g.events)) {
+    g.events = []
+  } else {
+    g.events = (g.events as any[]).map((e: any): EventNode | null => {
+      if (typeof e === 'string') return { name: e }
+      if (!e || typeof e !== 'object' || !e.name) return null
+
+      const eventNode: EventNode = { name: e.name }
+      if (e.place) eventNode.place = e.place
+
+      if (e.date) {
+        eventNode.date = e.date  // already new format
+      } else if (e.year !== undefined || e.era !== undefined) {
+        // Legacy: migrate year/era top-level fields into date
+        eventNode.date = {}
+        if (e.year !== undefined) {
+          const yearNum = typeof e.year === 'number' ? e.year : parseInt(String(e.year), 10)
+          if (!isNaN(yearNum)) eventNode.date.year = yearNum
+        }
+        if (e.era) eventNode.date.era = e.era
+      }
+      return eventNode
+    }).filter((e: EventNode | null): e is EventNode => e !== null)
+  }
+
+  // Ensure required arrays and objects exist
+  if (!g.open_threads) g.open_threads = []
+  if (!g.interests) g.interests = []
+  if (!g.themes) g.themes = []
+  if (!g.deflections) g.deflections = []
+  if (!g.people) g.people = {}
+  if (!g.eras) g.eras = {}
+  if (!g.faith) g.faith = {}
+  if (!g.milestone_calendar) g.milestone_calendar = {}
+  if (g.total_entries === undefined) g.total_entries = 0
+
+  return g as NarrativeGraph
+}
+
 export function mergeExtraction(graph: NarrativeGraph, extraction: ExtractionResult): NarrativeGraph {
   // Deep clone — never mutate in place
   const g: NarrativeGraph = JSON.parse(JSON.stringify(graph))
@@ -129,9 +204,21 @@ export function mergeExtraction(graph: NarrativeGraph, extraction: ExtractionRes
     }
   }
 
-  // Places
-  for (const place of extraction.places ?? []) {
-    if (!g.places.includes(place)) g.places.push(place)
+  // Places — merge structured PlaceNode into Record, backward-compat with raw strings
+  for (const rawPlace of (extraction.places ?? []) as any[]) {
+    const place: PlaceNode = typeof rawPlace === 'string'
+      ? { name: rawPlace }
+      : { name: rawPlace.name, city: rawPlace.city, state: rawPlace.state, country: rawPlace.country, address: rawPlace.address }
+
+    const key = place.name
+    if (!g.places[key]) {
+      g.places[key] = { name: key }
+    }
+    // Update fields non-destructively (don't overwrite existing data)
+    if (place.city && !g.places[key].city) g.places[key].city = place.city
+    if (place.state && !g.places[key].state) g.places[key].state = place.state
+    if (place.country && !g.places[key].country) g.places[key].country = place.country
+    if (place.address && !g.places[key].address) g.places[key].address = place.address
   }
 
   // Era
@@ -159,10 +246,19 @@ export function mergeExtraction(graph: NarrativeGraph, extraction: ExtractionRes
     if (!g.interests.includes(interest)) g.interests.push(interest)
   }
 
-  // Events
+  // Events — merge structured EventNode, backward-compat with raw strings
   if (!g.events) g.events = []
-  for (const event of extraction.events ?? []) {
-    if (!g.events.includes(event)) g.events.push(event)
+  for (const rawEvent of (extraction.events ?? []) as any[]) {
+    const event: EventNode = typeof rawEvent === 'string'
+      ? { name: rawEvent }
+      : { name: rawEvent.name, date: rawEvent.date }
+
+    const existing = g.events.find(e => e.name === event.name)
+    if (!existing) {
+      g.events.push(event)
+    } else if (event.date && !existing.date) {
+      existing.date = event.date
+    }
   }
 
   // Open threads — topics mentioned in passing worth returning to.
@@ -240,8 +336,16 @@ export function buildGraphBriefing(graph: NarrativeGraph): string {
     sections.push(`People:\n${lines.join('\n')}`)
   }
 
-  if (graph.places?.length) {
-    sections.push(`Places mentioned: ${graph.places.join(', ')}`)
+  const placesEntries = Object.values(graph.places ?? {})
+  if (placesEntries.length > 0) {
+    const placeStrings = placesEntries.map(p => {
+      const parts: string[] = [p.name]
+      if (p.city) parts.push(p.city)
+      if (p.state) parts.push(p.state)
+      if (p.country) parts.push(p.country)
+      return parts.length > 1 ? `${parts[0]} (${parts.slice(1).join(', ')})` : parts[0]
+    })
+    sections.push(`Places mentioned: ${placeStrings.join('; ')}`)
   }
 
   const eras = Object.entries(graph.eras ?? {})
@@ -273,10 +377,10 @@ export function buildGraphBriefing(graph: NarrativeGraph): string {
   return sections.join('\n\n')
 }
 
-// Identifies gaps in biographical data — missing relationships, years, places.
+// Identifies gaps in biographical data — missing relationships, dates, city-level place info.
 // Returns array of { entity_type, entity_key, field, question } objects.
 export interface CompletenessGap {
-  entity_type: 'person' | 'event'
+  entity_type: 'person' | 'event' | 'place' | 'era'
   entity_key: string
   field: string
   question: string
@@ -297,16 +401,14 @@ export function findCompletenessGaps(graph: NarrativeGraph): CompletenessGap[] {
     }
   }
 
-  // Events missing year/era or place
-  for (const eventStr of graph.events ?? []) {
-    const event = typeof eventStr === 'object' ? (eventStr as EventNode) : { name: eventStr }
-
-    if (!event.year && !event.era) {
+  // Events missing date or place
+  for (const event of graph.events ?? []) {
+    if (!event.date) {
       gaps.push({
         entity_type: 'event',
         entity_key: event.name,
-        field: 'year',
-        question: `You mentioned "${event.name}" — roughly what years was that?`,
+        field: 'date',
+        question: `You mentioned "${event.name}" — roughly when did that happen?`,
       })
     }
 
@@ -320,13 +422,85 @@ export function findCompletenessGaps(graph: NarrativeGraph): CompletenessGap[] {
     }
   }
 
+  // Places missing city-level detail
+  for (const [name, node] of Object.entries(graph.places ?? {})) {
+    if (!node.city) {
+      gaps.push({
+        entity_type: 'place',
+        entity_key: name,
+        field: 'city',
+        question: `Where exactly is ${name} — what city?`,
+      })
+    }
+  }
+
+  return gaps
+}
+
+// Finds entry-specific gaps: things mentioned in this entry that the master graph doesn't fully know.
+// More targeted than findCompletenessGaps — scoped to what was mentioned in one conversation.
+export function findEntryGaps(
+  extraction: ExtractionResult,
+  graph: NarrativeGraph
+): CompletenessGap[] {
+  const gaps: CompletenessGap[] = []
+
+  // People mentioned in this entry without known relationship in master graph
+  for (const person of extraction.people ?? []) {
+    if (!graph.people[person.name]?.relationship) {
+      gaps.push({
+        entity_type: 'person',
+        entity_key: person.name,
+        field: 'relationship',
+        question: `Who is ${person.name} to you?`,
+      })
+    }
+  }
+
+  // Events mentioned without date context in master graph
+  for (const rawEvent of (extraction.events ?? []) as any[]) {
+    const eventName: string = typeof rawEvent === 'string' ? rawEvent : rawEvent.name
+    const graphEvent = (graph.events ?? []).find(e => e.name === eventName)
+    if (!graphEvent?.date) {
+      gaps.push({
+        entity_type: 'event',
+        entity_key: eventName,
+        field: 'date',
+        question: `Roughly when did "${eventName}" happen?`,
+      })
+    }
+  }
+
+  // Places mentioned without city-level detail in master graph
+  for (const rawPlace of (extraction.places ?? []) as any[]) {
+    const placeName: string = typeof rawPlace === 'string' ? rawPlace : rawPlace.name
+    if (!graph.places[placeName]?.city) {
+      gaps.push({
+        entity_type: 'place',
+        entity_key: placeName,
+        field: 'city',
+        question: `Where exactly is ${placeName} — what city?`,
+      })
+    }
+  }
+
+  // Era unknown for this entry
+  if (!extraction.era) {
+    gaps.push({
+      entity_type: 'era',
+      entity_key: 'entry',
+      field: 'era',
+      question: `Which chapter of your life is this from — childhood, youth, early career, more recently?`,
+    })
+  }
+
   return gaps
 }
 
 // Apply clarification answer directly to graph without enrichment pipeline.
 export function applyGraphPatch(
   graph: NarrativeGraph,
-  entityType: 'person' | 'event',
+  entityType: 'person' | 'event' | 'place' | 'era',
   entityKey: string,
   field: string,
   answer: string
@@ -341,32 +515,41 @@ export function applyGraphPatch(
       g.people[entityKey].relationship = answer
     }
   } else if (entityType === 'event') {
-    // Find the event in the events array and update it
     let eventFound = false
-    for (let i = 0; i < (g.events ?? []).length; i++) {
-      const evt = g.events![i]
-      const eventName = typeof evt === 'object' ? (evt as EventNode).name : evt
-      if (eventName === entityKey) {
-        if (typeof g.events![i] === 'string') {
-          // Convert string to object
-          g.events![i] = { name: entityKey } as unknown as string
+    for (const evt of g.events ?? []) {
+      if (evt.name === entityKey) {
+        if (field === 'date') {
+          if (!evt.date) evt.date = {}
+          const yearMatch = answer.match(/\b(1[89]\d{2}|20[0-2]\d)\b/)
+          if (yearMatch) evt.date.year = parseInt(yearMatch[0], 10)
+          else evt.date.era = answer
         }
-        const eventNode = g.events![i] as unknown as EventNode
-        if (field === 'year') eventNode.year = answer
-        if (field === 'era') eventNode.era = answer
-        if (field === 'place') eventNode.place = answer
+        if (field === 'place') evt.place = answer
         eventFound = true
         break
       }
     }
-    if (!eventFound && g.events) {
-      // Create new event node if not found
+    if (!eventFound) {
+      if (!g.events) g.events = []
       const newEvent: EventNode = { name: entityKey }
-      if (field === 'year') newEvent.year = answer
-      if (field === 'era') newEvent.era = answer
+      if (field === 'date') {
+        const yearMatch = answer.match(/\b(1[89]\d{2}|20[0-2]\d)\b/)
+        newEvent.date = yearMatch ? { year: parseInt(yearMatch[0], 10) } : { era: answer }
+      }
       if (field === 'place') newEvent.place = answer
-      g.events.push(newEvent as unknown as string)
+      g.events.push(newEvent)
     }
+  } else if (entityType === 'place') {
+    if (!g.places) g.places = {}
+    if (!g.places[entityKey]) g.places[entityKey] = { name: entityKey }
+    if (field === 'city') g.places[entityKey].city = answer
+    if (field === 'state') g.places[entityKey].state = answer
+    if (field === 'country') g.places[entityKey].country = answer
+    if (field === 'address') g.places[entityKey].address = answer
+  } else if (entityType === 'era') {
+    // Record the era in the graph's eras map
+    if (!g.eras) g.eras = {}
+    if (!g.eras[answer]) g.eras[answer] = { richness: 'low', entries: 0 }
   }
 
   return g
@@ -412,7 +595,7 @@ export function emptyGraph(displayName?: string): NarrativeGraph {
   return {
     display_name: displayName,
     people: {},
-    places: [],
+    places: {},
     eras: {},
     themes: [],
     deflections: [],

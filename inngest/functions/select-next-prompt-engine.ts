@@ -220,7 +220,7 @@ export const LIFE_CURRICULUM: CurriculumItem[] = [
     questionType: 'sensory',
     baseScore: 18,
     coveredIf: (g, ids, n) => h('curriculum:travel_meaningful')(ids) ||
-      (n >= 30 && (g.places ?? []).length > 3),
+      (n >= 30 && Object.keys(g.places ?? {}).length > 3),
   },
   {
     id: 'curriculum:loss_grief',
@@ -374,22 +374,22 @@ export function selectTopThreads(
   }
 
   // Places — ask a sensory question to bring a place to life
-  for (const place of graph.places ?? []) {
+  for (const place of Object.values(graph.places ?? {})) {
     threads.push({
-      threadId: `place:${place.slice(0, 40)}`,
+      threadId: `place:${place.name.slice(0, 40)}`,
       questionType: 'sensory',
       score: 12,
-      description: `Place they've mentioned: "${place}" — ask for a sensory memory of this place`,
+      description: `Place they've mentioned: "${place.name}" — ask for a sensory memory of this place`,
     })
   }
 
   // Events — specific named experiences worth exploring in depth
   for (const event of graph.events ?? []) {
     threads.push({
-      threadId: `event:${event.slice(0, 40)}`,
+      threadId: `event:${event.name.slice(0, 40)}`,
       questionType: 'depth',
       score: 16,
-      description: `Specific experience they've mentioned: "${event}" — ask for a memory or moment from this event`,
+      description: `Specific experience they've mentioned: "${event.name}" — ask for a memory or moment from this event`,
     })
   }
 

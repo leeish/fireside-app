@@ -22,7 +22,7 @@ Your job: extract what is known into a structured format that will seed their na
 
 Return a JSON object with exactly these fields (omit or leave empty any field you cannot infer):
 - people: array of { name, relationship, sentiment, new_facts (string[]), new_threads (string[]) }
-- places: string[] — specific places mentioned
+- places: array of { name, city?, state?, country?, address? } — specific places mentioned; only populate location fields when explicitly stated
 - era: null (onboarding data rarely maps to a single era)
 - emotional_weight: "light"
 - themes: string[] — interests and life themes this person has indicated

@@ -6,7 +6,7 @@ import type { NarrativeGraph } from '../lib/graph'
 function baseGraph(overrides: Partial<NarrativeGraph> = {}): NarrativeGraph {
   return {
     people: {},
-    places: [],
+    places: {},
     eras: {},
     themes: [],
     deflections: [],
@@ -44,8 +44,8 @@ describe('selectTopThreads', () => {
         Bob: { mentions: 1, unexplored: [], facts: [] },
       },
       eras: { childhood: { richness: 'low', entries: 1 } },
-      places: ['Salt Lake City'],
-      events: ['family reunion 1995'],
+      places: { 'Salt Lake City': { name: 'Salt Lake City' } },
+      events: [{ name: 'family reunion 1995' }],
       interests: ['woodworking'],
     })
     const candidates = selectTopThreads(graph)
@@ -58,7 +58,7 @@ describe('selectTopThreads', () => {
       last_entry_weight: 'heavy',
       open_threads: ['topic A', 'topic B', 'topic C'],
       themes: ['resilience'],
-      places: ['home'],
+      places: { 'home': { name: 'home' } },
     })
     const candidates = selectTopThreads(graph)
     expect(candidates[0].threadId).toBe('lightness')
@@ -68,7 +68,7 @@ describe('selectTopThreads', () => {
     const fullEras = Object.fromEntries(
       ['childhood', 'youth', 'mission', 'marriage', 'parenthood', 'career'].map(e => [e, { richness: 'high' as const, entries: 10 }])
     )
-    const graph = baseGraph({ eras: fullEras, people: {}, open_threads: [], themes: [], places: [], events: [], interests: [] })
+    const graph = baseGraph({ eras: fullEras, people: {}, open_threads: [], themes: [], places: {}, events: [], interests: [] })
     // Pass full curriculum history so all curriculum items are marked covered
     const candidates = selectTopThreads(graph, allCurriculumHistory())
     expect(candidates).toHaveLength(1)
