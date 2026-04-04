@@ -64,17 +64,22 @@ export default async function DashboardPage() {
       .maybeSingle(),
   ])
 
+  // Fetch the conversation linked to the queued prompt via FK (run after queuedPrompt is resolved)
+  const { data: linkedConversationData } = queuedPrompt
+    ? await supabase
+        .from('conversations')
+        .select('id')
+        .eq('queued_prompt_id', queuedPrompt.id)
+        .neq('status', 'archived')
+        .maybeSingle()
+    : { data: null }
+
   const userName = profile?.display_name ?? 'Friend'
   const hasConversations = conversations && conversations.length > 0
   const isProcessing = !!unprocessedTurn && !queuedPrompt
   const isBatchPending = !!batchPendingConversation && !queuedPrompt && !isProcessing
 
-  const linkedConversation = queuedPrompt
-    ? conversations?.find(c =>
-        c.topic === queuedPrompt.question &&
-        (c.status === 'active' || c.status === 'wrap_offered')
-      )
-    : undefined
+  const linkedConversation = linkedConversationData ?? undefined
 
   return (
     <div className="max-w-2xl mx-auto px-4 pt-8 pb-4">
