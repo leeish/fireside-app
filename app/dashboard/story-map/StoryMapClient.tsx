@@ -2,12 +2,16 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import type { NarrativeGraph, PersonNode } from '@/lib/graph'
 
 function EraCard({ name, entries, maxEntries }: { name: string; entries: number; maxEntries: number }) {
   const pct = maxEntries > 0 ? Math.round((entries / maxEntries) * 100) : 0
   return (
-    <div className="bg-card border border-border/50 rounded-2xl px-5 py-4 space-y-2">
+    <Link
+      href={`/dashboard/story-map/era/${encodeURIComponent(name)}`}
+      className="block bg-card border border-border/50 rounded-2xl px-5 py-4 space-y-2 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-300"
+    >
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-foreground capitalize">{name}</p>
         <p className="text-xs text-muted-fg">{entries} {entries === 1 ? 'entry' : 'entries'}</p>
@@ -18,7 +22,7 @@ function EraCard({ name, entries, maxEntries }: { name: string; entries: number;
           style={{ width: `${pct}%` }}
         />
       </div>
-    </div>
+    </Link>
   )
 }
 
@@ -64,7 +68,13 @@ function PersonCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{name}</p>
+          <Link
+            href={`/dashboard/story-map/person/${encodeURIComponent(name)}`}
+            className="text-sm font-medium text-foreground hover:text-primary transition-colors duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            {name}
+          </Link>
           {node.relationship && (
             <p className="text-xs text-muted-fg mt-0.5 capitalize">{node.relationship}</p>
           )}

@@ -170,6 +170,7 @@ export const chatSettle = inngest.createFunction(
           origin: 'biographer',
           era: extraction.era ?? null,
           themes: extraction.themes ?? [],
+          people_mentioned: extraction.people?.map(p => p.name) ?? [],
           settled_at: now,
         })
         .select('id')

@@ -45,5 +45,25 @@ export async function POST(request: Request) {
     })
     .eq('user_id', user.id)
 
+  // Replace duplicate name with canonical in all affected entry rows
+  const { data: affectedEntries } = await service
+    .from('entries')
+    .select('id, people_mentioned')
+    .eq('user_id', user.id)
+    .contains('people_mentioned', [duplicate])
+
+  if (affectedEntries && affectedEntries.length > 0) {
+    await Promise.all(
+      affectedEntries.map((entry: { id: string; people_mentioned: string[] }) =>
+        service
+          .from('entries')
+          .update({
+            people_mentioned: entry.people_mentioned.map((n: string) => n === duplicate ? canonical : n),
+          })
+          .eq('id', entry.id)
+      )
+    )
+  }
+
   return NextResponse.json({ ok: true })
 }
