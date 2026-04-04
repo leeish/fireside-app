@@ -24,6 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div className="flex items-center gap-5">
             <p className="text-xs text-muted-fg hidden sm:block">{user.email}</p>
             <Link href="/dashboard" className="text-sm text-muted-fg hover:text-foreground transition-colors duration-300">Home</Link>
+            <Link href="/dashboard/story-map" className="text-sm text-muted-fg hover:text-foreground transition-colors duration-300">My story</Link>
             <Link href="/dashboard/settings" className="text-sm text-muted-fg hover:text-foreground transition-colors duration-300">Settings</Link>
             <ThemeToggle />
             <LogoutButton />

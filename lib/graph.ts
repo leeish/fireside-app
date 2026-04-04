@@ -372,6 +372,42 @@ export function applyGraphPatch(
   return g
 }
 
+// Merges a duplicate person node into a canonical node.
+// The duplicate is removed; the canonical accumulates all data.
+// Pure function -- returns a new graph, never mutates in place.
+export function mergePersonNodes(
+  graph: NarrativeGraph,
+  canonical: string,
+  duplicate: string
+): NarrativeGraph {
+  const g: NarrativeGraph = JSON.parse(JSON.stringify(graph))
+
+  const canonNode = g.people[canonical]
+  const dupNode = g.people[duplicate]
+
+  if (!canonNode || !dupNode) return g
+
+  canonNode.mentions += dupNode.mentions
+
+  for (const fact of dupNode.facts) {
+    if (!canonNode.facts.includes(fact)) canonNode.facts.push(fact)
+  }
+  for (const thread of dupNode.unexplored) {
+    if (!canonNode.unexplored.includes(thread)) canonNode.unexplored.push(thread)
+  }
+
+  if (!canonNode.relationship && dupNode.relationship) {
+    canonNode.relationship = dupNode.relationship
+  }
+  if (!canonNode.sentiment && dupNode.sentiment) {
+    canonNode.sentiment = dupNode.sentiment
+  }
+
+  delete g.people[duplicate]
+
+  return g
+}
+
 export function emptyGraph(displayName?: string): NarrativeGraph {
   return {
     display_name: displayName,
