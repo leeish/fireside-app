@@ -378,7 +378,7 @@ Return ONLY valid JSON, no markdown, no explanation:
       const deliverAt = new Date()
       deliverAt.setDate(deliverAt.getDate() + deliverInDays)
 
-      if (user.next_prompt_delivery_date && new Date(user.next_prompt_delivery_date) > deliverAt) {
+      if (user.next_prompt_delivery_date && new Date(user.next_prompt_delivery_date) > new Date()) {
         return { userId, queuedPromptId: qp.id, skipped: 'delivery already scheduled' }
       }
 

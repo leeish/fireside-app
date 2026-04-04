@@ -197,6 +197,20 @@ export const chatSettle = inngest.createFunction(
       }
     }
 
+    // Mark the linked prompt as complete if this conversation was delivered via a queued prompt
+    const { data: settledConversation } = await supabase
+      .from('conversations')
+      .select('queued_prompt_id')
+      .eq('id', conversationId)
+      .single()
+
+    if (settledConversation?.queued_prompt_id) {
+      await supabase
+        .from('queued_prompts')
+        .update({ delivery_state: 'complete' })
+        .eq('id', settledConversation.queued_prompt_id)
+    }
+
     // Queue conversation for batch processing — synthesis and prompt selection happen at midnight ET
     await supabase
       .from('conversations')
