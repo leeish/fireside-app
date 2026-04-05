@@ -607,6 +607,36 @@ export function mergePersonNodes(
   return g
 }
 
+export function renamePerson(graph: NarrativeGraph, oldName: string, newName: string): NarrativeGraph {
+  if (!oldName || !newName || oldName === newName || !graph.people[oldName]) return graph
+  const g: NarrativeGraph = JSON.parse(JSON.stringify(graph))
+  g.people[newName] = g.people[oldName]
+  delete g.people[oldName]
+  return g
+}
+
+export function removePerson(graph: NarrativeGraph, name: string): NarrativeGraph {
+  if (!name || !graph.people[name]) return graph
+  const g: NarrativeGraph = JSON.parse(JSON.stringify(graph))
+  delete g.people[name]
+  return g
+}
+
+export function renamePlace(graph: NarrativeGraph, oldName: string, newName: string): NarrativeGraph {
+  if (!oldName || !newName || oldName === newName || !graph.places[oldName]) return graph
+  const g: NarrativeGraph = JSON.parse(JSON.stringify(graph))
+  g.places[newName] = { ...g.places[oldName], name: newName }
+  delete g.places[oldName]
+  return g
+}
+
+export function removePlace(graph: NarrativeGraph, name: string): NarrativeGraph {
+  if (!name || !graph.places[name]) return graph
+  const g: NarrativeGraph = JSON.parse(JSON.stringify(graph))
+  delete g.places[name]
+  return g
+}
+
 export function emptyGraph(displayName?: string): NarrativeGraph {
   return {
     display_name: displayName,

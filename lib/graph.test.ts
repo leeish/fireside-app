@@ -7,6 +7,10 @@ import {
   applyGraphPatch,
   normalizeGraph,
   findEntryGaps,
+  renamePerson,
+  removePerson,
+  renamePlace,
+  removePlace,
   type NarrativeGraph,
   type ExtractionResult,
 } from './graph'
@@ -661,6 +665,112 @@ describe('narrative graph', () => {
 
       graph = applyGraphPatch(graph, 'era', 'entry', 'era', 'childhood')
       expect(graph.eras['childhood']).toBeDefined()
+    })
+  })
+
+  describe('renamePerson', () => {
+    it('moves node to new key and removes old key', () => {
+      let graph = emptyGraph()
+      graph = mergeExtraction(graph, { people: [{ name: 'Bob', relationship: 'friend' }] })
+      const updated = renamePerson(graph, 'Bob', 'Robert')
+      expect(updated.people['Robert']).toBeDefined()
+      expect(updated.people['Robert'].relationship).toBe('friend')
+      expect(updated.people['Bob']).toBeUndefined()
+    })
+
+    it('does not mutate input graph', () => {
+      let graph = emptyGraph()
+      graph = mergeExtraction(graph, { people: [{ name: 'Alice' }] })
+      const original = JSON.stringify(graph)
+      renamePerson(graph, 'Alice', 'Alicia')
+      expect(JSON.stringify(graph)).toBe(original)
+    })
+
+    it('is a no-op when oldName does not exist', () => {
+      const graph = emptyGraph()
+      const result = renamePerson(graph, 'Ghost', 'Phantom')
+      expect(result.people).toEqual({})
+    })
+
+    it('is a no-op when oldName equals newName', () => {
+      let graph = emptyGraph()
+      graph = mergeExtraction(graph, { people: [{ name: 'Sam' }] })
+      const result = renamePerson(graph, 'Sam', 'Sam')
+      expect(Object.keys(result.people)).toContain('Sam')
+    })
+  })
+
+  describe('removePerson', () => {
+    it('deletes the person node', () => {
+      let graph = emptyGraph()
+      graph = mergeExtraction(graph, { people: [{ name: 'Dave' }, { name: 'Eve' }] })
+      const updated = removePerson(graph, 'Dave')
+      expect(updated.people['Dave']).toBeUndefined()
+      expect(updated.people['Eve']).toBeDefined()
+    })
+
+    it('does not mutate input graph', () => {
+      let graph = emptyGraph()
+      graph = mergeExtraction(graph, { people: [{ name: 'Frank' }] })
+      const original = JSON.stringify(graph)
+      removePerson(graph, 'Frank')
+      expect(JSON.stringify(graph)).toBe(original)
+    })
+
+    it('is a no-op when person does not exist', () => {
+      const graph = emptyGraph()
+      const result = removePerson(graph, 'Nobody')
+      expect(result.people).toEqual({})
+    })
+  })
+
+  describe('renamePlace', () => {
+    it('moves PlaceNode to new key and updates name field', () => {
+      let graph = emptyGraph()
+      graph = mergeExtraction(graph, { places: [{ name: 'The Old Barn', city: 'Salem' }] })
+      const updated = renamePlace(graph, 'The Old Barn', 'Grandpa\'s Farm')
+      expect(updated.places['Grandpa\'s Farm']).toBeDefined()
+      expect(updated.places['Grandpa\'s Farm'].name).toBe('Grandpa\'s Farm')
+      expect(updated.places['Grandpa\'s Farm'].city).toBe('Salem')
+      expect(updated.places['The Old Barn']).toBeUndefined()
+    })
+
+    it('does not mutate input graph', () => {
+      let graph = emptyGraph()
+      graph = mergeExtraction(graph, { places: [{ name: 'Paris' }] })
+      const original = JSON.stringify(graph)
+      renamePlace(graph, 'Paris', 'France')
+      expect(JSON.stringify(graph)).toBe(original)
+    })
+
+    it('is a no-op when oldName does not exist', () => {
+      const graph = emptyGraph()
+      const result = renamePlace(graph, 'Nowhere', 'Somewhere')
+      expect(result.places).toEqual({})
+    })
+  })
+
+  describe('removePlace', () => {
+    it('deletes the PlaceNode', () => {
+      let graph = emptyGraph()
+      graph = mergeExtraction(graph, { places: [{ name: 'London' }, { name: 'Tokyo' }] })
+      const updated = removePlace(graph, 'London')
+      expect(updated.places['London']).toBeUndefined()
+      expect(updated.places['Tokyo']).toBeDefined()
+    })
+
+    it('does not mutate input graph', () => {
+      let graph = emptyGraph()
+      graph = mergeExtraction(graph, { places: [{ name: 'Rome' }] })
+      const original = JSON.stringify(graph)
+      removePlace(graph, 'Rome')
+      expect(JSON.stringify(graph)).toBe(original)
+    })
+
+    it('is a no-op when place does not exist', () => {
+      const graph = emptyGraph()
+      const result = removePlace(graph, 'Atlantis')
+      expect(result.places).toEqual({})
     })
   })
 })

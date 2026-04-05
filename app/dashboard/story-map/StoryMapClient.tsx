@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { NarrativeGraph, PersonNode } from '@/lib/graph'
@@ -39,6 +39,8 @@ function PersonCard({
   onMergeStart,
   onMergeSelect,
   onMergeCancel,
+  onRename,
+  onRemove,
 }: {
   name: string
   node: PersonNode
@@ -47,13 +49,33 @@ function PersonCard({
   onMergeStart: (name: string) => void
   onMergeSelect: (name: string) => void
   onMergeCancel: () => void
+  onRename: (oldName: string, newName: string) => void
+  onRemove: (name: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState(name)
+  const [removing, setRemoving] = useState(false)
+  const renameInputRef = useRef<HTMLInputElement>(null)
   const pct = maxMentions > 0 ? Math.round((node.mentions / maxMentions) * 100) : 0
 
   const isPicking = mergeState.step === 'picking'
   const isSource = isPicking && mergeState.source === name
   const isTarget = isPicking && mergeState.source !== name
+
+  function startRename() {
+    setRenameValue(name)
+    setRenaming(true)
+    setTimeout(() => renameInputRef.current?.select(), 0)
+  }
+
+  function submitRename() {
+    const trimmed = renameValue.trim()
+    if (trimmed && trimmed !== name) {
+      onRename(name, trimmed)
+    }
+    setRenaming(false)
+  }
 
   return (
     <div
@@ -127,12 +149,50 @@ function PersonCard({
               </ul>
             </div>
           )}
-          <button
-            onClick={() => onMergeStart(name)}
-            className="text-xs text-muted-fg hover:text-foreground transition-colors duration-200 underline underline-offset-2"
-          >
-            Same person as...
-          </button>
+
+          {renaming ? (
+            <div className="flex items-center gap-2">
+              <input
+                ref={renameInputRef}
+                value={renameValue}
+                onChange={e => setRenameValue(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') submitRename()
+                  if (e.key === 'Escape') setRenaming(false)
+                }}
+                className="flex-1 text-xs px-2 h-7 rounded-lg border border-border bg-background focus:outline-none focus:border-primary/60"
+              />
+              <button onClick={submitRename} className="text-xs text-primary font-medium hover:text-primary/80 transition-colors duration-200">Save</button>
+              <button onClick={() => setRenaming(false)} className="text-xs text-muted-fg hover:text-foreground transition-colors duration-200">Cancel</button>
+            </div>
+          ) : removing ? (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-foreground/70 flex-1">Remove {name}?</p>
+              <button onClick={() => onRemove(name)} className="text-xs text-red-500 font-medium hover:text-red-600 transition-colors duration-200">Confirm</button>
+              <button onClick={() => setRemoving(false)} className="text-xs text-muted-fg hover:text-foreground transition-colors duration-200">Cancel</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => onMergeStart(name)}
+                className="text-xs text-muted-fg hover:text-foreground transition-colors duration-200 underline underline-offset-2"
+              >
+                Same person as...
+              </button>
+              <button
+                onClick={startRename}
+                className="text-xs text-muted-fg hover:text-foreground transition-colors duration-200 underline underline-offset-2"
+              >
+                Rename
+              </button>
+              <button
+                onClick={() => setRemoving(true)}
+                className="text-xs text-muted-fg hover:text-red-500 transition-colors duration-200 underline underline-offset-2"
+              >
+                Remove
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -225,6 +285,10 @@ export default function StoryMapClient({ graph: initialGraph }: { graph: Narrati
   const [mergeError, setMergeError] = useState('')
   const [revisitingThread, setRevisitingThread] = useState<string | null>(null)
   const [revisitError, setRevisitError] = useState('')
+  const [renamingPlace, setRenamingPlace] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [removingPlace, setRemovingPlace] = useState<string | null>(null)
+  const placeRenameInputRef = useRef<HTMLInputElement>(null)
 
   const maxEraEntries = Math.max(1, ...Object.values(graph.eras).map(e => e.entries))
   const maxMentions = Math.max(1, ...Object.values(graph.people).map(p => p.mentions))
@@ -279,6 +343,70 @@ export default function StoryMapClient({ graph: initialGraph }: { graph: Narrati
   function handleMergeCancel() {
     setMergeState({ step: 'idle' })
     setMergeError('')
+  }
+
+  async function handleRenamePerson(oldName: string, newName: string) {
+    const res = await fetch('/api/narrative/rename-person', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldName, newName }),
+    })
+    if (!res.ok) return
+    const updatedPeople = { ...graph.people }
+    updatedPeople[newName] = updatedPeople[oldName]
+    delete updatedPeople[oldName]
+    setGraph({ ...graph, people: updatedPeople })
+  }
+
+  async function handleRemovePerson(name: string) {
+    const res = await fetch('/api/narrative/remove-person', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    if (!res.ok) return
+    const updatedPeople = { ...graph.people }
+    delete updatedPeople[name]
+    setGraph({ ...graph, people: updatedPeople })
+  }
+
+  function startRenamePlace(place: string) {
+    setRenamingPlace(place)
+    setRenameValue(place)
+    setRemovingPlace(null)
+    setTimeout(() => placeRenameInputRef.current?.select(), 0)
+  }
+
+  async function submitRenamePlace() {
+    if (!renamingPlace) return
+    const trimmed = renameValue.trim()
+    if (trimmed && trimmed !== renamingPlace) {
+      const res = await fetch('/api/narrative/rename-place', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ oldName: renamingPlace, newName: trimmed }),
+      })
+      if (res.ok) {
+        const updatedPlaces = { ...graph.places }
+        updatedPlaces[trimmed] = { ...updatedPlaces[renamingPlace], name: trimmed }
+        delete updatedPlaces[renamingPlace]
+        setGraph({ ...graph, places: updatedPlaces })
+      }
+    }
+    setRenamingPlace(null)
+  }
+
+  async function handleRemovePlace(name: string) {
+    const res = await fetch('/api/narrative/remove-place', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    if (!res.ok) return
+    const updatedPlaces = { ...graph.places }
+    delete updatedPlaces[name]
+    setGraph({ ...graph, places: updatedPlaces })
+    setRemovingPlace(null)
   }
 
   async function handleRevisitThread(thread: string) {
@@ -343,6 +471,8 @@ export default function StoryMapClient({ graph: initialGraph }: { graph: Narrati
                 onMergeStart={handleMergeStart}
                 onMergeSelect={handleMergeSelect}
                 onMergeCancel={handleMergeCancel}
+                onRename={handleRenamePerson}
+                onRemove={handleRemovePerson}
               />
             ))}
           </div>
@@ -355,12 +485,46 @@ export default function StoryMapClient({ graph: initialGraph }: { graph: Narrati
           <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Places</p>
           <div className="flex flex-wrap gap-2">
             {placeNames.map(place => (
-              <span
-                key={place}
-                className="px-3 h-7 flex items-center rounded-full border border-border/50 text-xs text-foreground/80 bg-card"
-              >
-                {place}
-              </span>
+              <div key={place} className="group relative flex items-center">
+                {renamingPlace === place ? (
+                  <div className="flex items-center gap-1 px-2 h-7 rounded-full border border-primary/60 bg-card">
+                    <input
+                      ref={placeRenameInputRef}
+                      value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') submitRenamePlace()
+                        if (e.key === 'Escape') setRenamingPlace(null)
+                      }}
+                      className="text-xs bg-transparent focus:outline-none w-28"
+                    />
+                    <button onClick={submitRenamePlace} className="text-xs text-primary font-medium hover:text-primary/80 transition-colors duration-200">Save</button>
+                    <button onClick={() => setRenamingPlace(null)} className="text-xs text-muted-fg hover:text-foreground transition-colors duration-200">✕</button>
+                  </div>
+                ) : removingPlace === place ? (
+                  <div className="flex items-center gap-1 px-2 h-7 rounded-full border border-red-400/50 bg-card text-xs">
+                    <span className="text-foreground/70">Remove?</span>
+                    <button onClick={() => handleRemovePlace(place)} className="text-red-500 font-medium hover:text-red-600 transition-colors duration-200">Yes</button>
+                    <button onClick={() => setRemovingPlace(null)} className="text-muted-fg hover:text-foreground transition-colors duration-200">No</button>
+                  </div>
+                ) : (
+                  <span className="px-3 h-7 flex items-center gap-1.5 rounded-full border border-border/50 text-xs text-foreground/80 bg-card">
+                    <button
+                      onClick={() => startRenamePlace(place)}
+                      className="hover:text-primary transition-colors duration-200"
+                    >
+                      {place}
+                    </button>
+                    <button
+                      onClick={() => { setRemovingPlace(place); setRenamingPlace(null) }}
+                      className="opacity-0 group-hover:opacity-100 text-muted-fg hover:text-red-500 transition-all duration-200 leading-none"
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                )}
+              </div>
             ))}
           </div>
         </section>
