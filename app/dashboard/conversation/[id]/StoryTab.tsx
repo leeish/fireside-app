@@ -53,6 +53,11 @@ export default function StoryTab({
   const [error, setError] = useState('')
   const [showRegenerateOptions, setShowRegenerateOptions] = useState(false)
 
+  function handleSetPerspective(p: Perspective) {
+    setPerspective(p)
+    if (p === 'first') setVoice('none')
+  }
+
   function handleSetIntensity(val: Intensity) {
     setIntensity(val)
     if (val !== 'full') {
@@ -159,7 +164,7 @@ export default function StoryTab({
                   {(['first', 'third'] as Perspective[]).map(p => (
                     <button
                       key={p}
-                      onClick={() => setPerspective(p)}
+                      onClick={() => handleSetPerspective(p)}
                       className={`px-3 h-8 rounded-full border text-xs transition-all duration-200 ${
                         perspective === p
                           ? 'border-primary/60 bg-primary/5 text-foreground font-medium'
@@ -171,6 +176,7 @@ export default function StoryTab({
                   ))}
                 </div>
               </div>
+              {perspective === 'third' && (
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Voice</p>
                 <div className="grid grid-cols-2 gap-2">
@@ -190,6 +196,7 @@ export default function StoryTab({
                   ))}
                 </div>
               </div>
+              )}
               {showPronounPicker && (
                 <div className="space-y-2">
                   <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">How should we refer to you?</p>
@@ -270,7 +277,7 @@ export default function StoryTab({
                       {(['first', 'third'] as Perspective[]).map(p => (
                         <button
                           key={p}
-                          onClick={() => setPerspective(p)}
+                          onClick={() => handleSetPerspective(p)}
                           className={`px-3 h-8 rounded-full border text-xs transition-all duration-200 ${
                             perspective === p
                               ? 'border-primary/60 bg-primary/5 text-foreground font-medium'
@@ -282,6 +289,7 @@ export default function StoryTab({
                       ))}
                     </div>
                   </div>
+                  {perspective === 'third' && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">Voice</p>
                     <div className="grid grid-cols-2 gap-2">
@@ -301,6 +309,7 @@ export default function StoryTab({
                       ))}
                     </div>
                   </div>
+                  )}
                   {showPronounPicker && (
                     <div className="space-y-2">
                       <p className="text-xs font-semibold text-muted-fg uppercase tracking-widest">How should we refer to you?</p>
