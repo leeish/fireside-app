@@ -4,6 +4,27 @@ import { decrypt } from '@/lib/crypto'
 import { claudeComplete, logTokenUsage, getClaudeClient, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
 import { CleanupSchema } from '@/lib/schemas'
 
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: conversationId } = await params
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const service = createServiceClient()
+
+  const { data: entry } = await service
+    .from('entries')
+    .select('cleaned_content')
+    .eq('conversation_id', conversationId)
+    .maybeSingle()
+
+  return NextResponse.json({ content: entry?.cleaned_content ?? null })
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

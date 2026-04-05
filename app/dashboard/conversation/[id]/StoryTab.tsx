@@ -53,6 +53,45 @@ export default function StoryTab({
   const [error, setError] = useState('')
   const [showRegenerateOptions, setShowRegenerateOptions] = useState(false)
 
+  const lsKey = `story_gen_${conversationId}`
+  const LS_TTL = 5 * 60 * 1000
+
+  // On mount: if a generation was in-progress when the user navigated away, resume the generating state
+  useEffect(() => {
+    if (content) return
+    const ts = localStorage.getItem(lsKey)
+    if (ts && Date.now() - Number(ts) < LS_TTL) {
+      setGenerating(true)
+    }
+  }, [])
+
+  // Poll for content while generating (covers the reload case)
+  useEffect(() => {
+    if (!generating || content) return
+    const start = Date.now()
+    const interval = setInterval(async () => {
+      if (Date.now() - start > LS_TTL) {
+        clearInterval(interval)
+        localStorage.removeItem(lsKey)
+        setGenerating(false)
+        setError('Generation timed out. Please try again.')
+        return
+      }
+      const res = await fetch(`/api/conversation/${conversationId}/story`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.content) {
+          clearInterval(interval)
+          localStorage.removeItem(lsKey)
+          setContent(data.content)
+          setSavedContent(data.content)
+          setGenerating(false)
+        }
+      }
+    }, 2500)
+    return () => clearInterval(interval)
+  }, [generating])
+
   function handleSetPerspective(p: Perspective) {
     setPerspective(p)
     if (p === 'first') setVoice('none')
@@ -80,6 +119,7 @@ export default function StoryTab({
   }, [content])
 
   async function handleGenerate() {
+    localStorage.setItem(lsKey, String(Date.now()))
     setGenerating(true)
     setError('')
     const res = await fetch(`/api/conversation/${conversationId}/story`, {
@@ -88,11 +128,13 @@ export default function StoryTab({
       body: JSON.stringify({ intensity, perspective, voice, pronouns: pronouns ?? undefined }),
     })
     if (!res.ok) {
+      localStorage.removeItem(lsKey)
       setError('Something went wrong. Please try again.')
       setGenerating(false)
       return
     }
     const data = await res.json()
+    localStorage.removeItem(lsKey)
     setContent(data.content)
     setSavedContent(data.content)
     setGenerating(false)

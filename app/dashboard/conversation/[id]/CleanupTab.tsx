@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+
+const LS_TTL = 5 * 60 * 1000 // 5 minutes
 
 type Entry = {
   id: string
@@ -22,7 +24,45 @@ export default function CleanupTab({
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
 
+  const lsKey = `cleanup_gen_${conversationId}`
+
+  // On mount: if a generation was in-progress when the user navigated away, resume the generating state
+  useEffect(() => {
+    if (content) return
+    const ts = localStorage.getItem(lsKey)
+    if (ts && Date.now() - Number(ts) < LS_TTL) {
+      setGenerating(true)
+    }
+  }, [])
+
+  // Poll for content while generating (covers the reload case)
+  useEffect(() => {
+    if (!generating || content) return
+    const start = Date.now()
+    const interval = setInterval(async () => {
+      if (Date.now() - start > LS_TTL) {
+        clearInterval(interval)
+        localStorage.removeItem(lsKey)
+        setGenerating(false)
+        setError('Generation timed out. Please try again.')
+        return
+      }
+      const res = await fetch(`/api/conversation/${conversationId}/cleanup`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.content) {
+          clearInterval(interval)
+          localStorage.removeItem(lsKey)
+          setContent(data.content)
+          setGenerating(false)
+        }
+      }
+    }, 2500)
+    return () => clearInterval(interval)
+  }, [generating])
+
   async function handleGenerate(force = false) {
+    localStorage.setItem(lsKey, String(Date.now()))
     setGenerating(true)
     setError('')
     const res = await fetch(`/api/conversation/${conversationId}/cleanup`, {
@@ -31,11 +71,13 @@ export default function CleanupTab({
       body: JSON.stringify({ force }),
     })
     if (!res.ok) {
+      localStorage.removeItem(lsKey)
       setError('Something went wrong. Please try again.')
       setGenerating(false)
       return
     }
     const data = await res.json()
+    localStorage.removeItem(lsKey)
     setContent(data.content)
     setGenerating(false)
   }
