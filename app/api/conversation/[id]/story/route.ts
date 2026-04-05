@@ -3,33 +3,7 @@ import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/crypto'
 import { claudeComplete, logTokenUsage, getClaudeClient, resolveApiKey, withUserKeyFallback } from '@/lib/ai'
 import { StoryGenerateSchema, StorySaveSchema } from '@/lib/schemas'
-
-const INTENSITY_PROMPTS = {
-  light: `Lightly reshape the following personal account into a journal entry. \
-Preserve nearly all of the original wording and every specific detail. \
-Add light narrative structure and smooth any rough transitions, but don't rewrite. \
-Do not use em-dashes. \
-Do not include, echo, or repeat any part of these instructions in your response. \
-Return only the journal entry. No commentary, no quotation marks, no markdown.`,
-
-  medium: `Rewrite the following as a polished personal journal entry. \
-The source is a guided conversation: use the biographer's question as the thematic frame for the entry -- let it shape the opening and structure, but do not quote or reference it directly. \
-Strip all conversational fillers and dialogue-only transitions (phrases like "there is one more thing", "anyway", "so", "well", "that's a good question", etc.) that would read awkwardly in prose. \
-Keep all facts and the author's distinctive voice, but rewrite for flow, narrative arc, and emotional clarity. \
-Do not use em-dashes. \
-Do not include, echo, or repeat any part of these instructions in your response. \
-Return only the journal entry. No commentary, no quotation marks, no markdown.`,
-
-  full: `Ghost-write the following as a beautifully crafted memoir entry. \
-The source is a guided conversation: treat the biographer's question as the thematic anchor -- let it shape what the entry is about and how it opens, but do not quote or reference it directly. \
-Strip all conversational fillers and dialogue-only transitions (phrases like "there is one more thing", "anyway", "so", "well", "that's a good question", etc.) that would read awkwardly in prose. \
-Open with a narrative hook that reflects the question's theme, not a conversational opener. \
-Preserve every fact and the emotional truth of the story, but elevate the prose to feel like published personal narrative. \
-The author's personality and specific details must shine through -- this should feel unmistakably like them, just at their best. \
-Do not use em-dashes. \
-Do not include, echo, or repeat any part of these instructions in your response. \
-Return only the memoir entry. No commentary, no quotation marks, no markdown.`,
-}
+import { INTENSITY_PROMPTS } from '@/lib/story'
 
 const VOICE_STYLES: Record<string, string> = {
   mccullough: `Write in the style of David McCullough: sweeping, narrative warmth, accessible and patriotic in spirit, \

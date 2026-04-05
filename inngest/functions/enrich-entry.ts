@@ -5,6 +5,7 @@ import { getAIClient, logTokenUsage } from '@/lib/ai'
 import { generateEmbedding } from '@/lib/embeddings'
 import { mergeExtraction, normalizeGraph, emptyGraph, findEntryGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
 import { ENTRY_EXTRACTION_SYSTEM } from '@/lib/extraction'
+import { autoGenerateStory } from '@/lib/story'
 
 type EnrichEntryEvent = { data: { turnId: string } }
 
@@ -170,6 +171,15 @@ export const enrichEntry = inngest.createFunction(
         }
       }
     }
+
+    // Auto-generate story entry (medium intensity) — errors are swallowed, must not block enrichment
+    await autoGenerateStory({
+      conversationId: turn.conversation_id,
+      userId: turn.user_id,
+      turns: [{ role: 'user', content: responseText }],
+      channel: 'email',
+      supabase,
+    })
 
     // Detect completeness gaps and store pending clarifications (skip already-existing ones)
     const gaps = findEntryGaps(extraction, updatedGraph)

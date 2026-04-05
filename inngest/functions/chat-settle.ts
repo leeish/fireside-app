@@ -4,6 +4,7 @@ import { decrypt, encrypt } from '@/lib/crypto'
 import { getAIClient, logTokenUsage } from '@/lib/ai'
 import { generateEmbedding } from '@/lib/embeddings'
 import { mergeExtraction, normalizeGraph, emptyGraph, findEntryGaps, type ExtractionResult, type NarrativeGraph } from '@/lib/graph'
+import { autoGenerateStory } from '@/lib/story'
 
 type ChatSettleEvent = {
   data: {
@@ -197,6 +198,13 @@ export const chatSettle = inngest.createFunction(
         })
       }
     }
+
+    // Auto-generate story entry (medium intensity) — errors are swallowed, must not block settle
+    const fullyDecryptedTurns = turns.map(t => ({
+      role: t.role,
+      content: (() => { try { return decrypt(t.content, process.env.MEMORY_ENCRYPTION_KEY!) } catch { return '' } })(),
+    }))
+    await autoGenerateStory({ conversationId, userId, turns: fullyDecryptedTurns, channel: 'chat', supabase })
 
     // Mark the linked prompt as complete if this conversation was delivered via a queued prompt
     const { data: settledConversation } = await supabase
