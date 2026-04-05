@@ -76,6 +76,19 @@ export const selectNextPrompt = inngest.createFunction(
 
     if (userError || !user) throw new Error(`User not found: ${userId}`)
 
+    // Guard: skip if an unstarted prompt already exists — prevents duplicates
+    const { data: existingUnstarted } = await supabase
+      .from('queued_prompts')
+      .select('id')
+      .eq('user_id', userId)
+      .in('delivery_state', ['queued', 'in_app_seen'])
+      .limit(1)
+      .maybeSingle()
+
+    if (existingUnstarted) {
+      return { userId, skipped: 'unstarted prompt already exists', existingPromptId: existingUnstarted.id }
+    }
+
     const userApiKey = await resolveApiKey(userId, supabase)
 
     // Load narrative graph

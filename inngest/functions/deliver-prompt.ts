@@ -42,7 +42,7 @@ export const deliverPrompt = inngest.createFunction(
       .select('id, question, question_type, delivery_state')
       .eq('user_id', userId)
       .in('delivery_state', ['queued', 'in_app_seen'])
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
